@@ -1,0 +1,363 @@
+/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f3;
+  --surface: #ececea;
+  --border: #e0e0de;
+  --text: #1a1a1a;
+  --text-muted: #888;
+  --accent: #1a1a1a;
+  --radius: 14px;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Georgia', serif;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; }
+
+/* ─── App Layout ────────────────────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── Nav ───────────────────────────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0 2.5rem;
+  height: 64px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.nav-logo {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.btn-launch {
+  padding: 0.45rem 1.1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-launch:hover { background: var(--surface); }
+
+/* ─── Hero ──────────────────────────────────────────────────────────────────── */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+.hero-left {
+  padding: 4rem 3rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border-right: 1px solid var(--border);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  width: fit-content;
+}
+
+.hero-heading {
+  font-size: clamp(2.4rem, 4vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.hero-heading strong {
+  font-weight: 700;
+}
+
+.hero-sub {
+  font-size: 0.95rem;
+  color: #555;
+  max-width: 38ch;
+  line-height: 1.65;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  padding: 0.6rem 1.4rem;
+  background: var(--text);
+  color: #fff;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.82; }
+
+.btn-secondary {
+  padding: 0.6rem 1.4rem;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  background: var(--bg);
+  transition: background 0.15s;
+}
+.btn-secondary:hover { background: var(--surface); }
+
+/* ─── Hero Right (Webcam side) ──────────────────────────────────────────────── */
+.hero-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 3rem 2rem;
+  background: var(--bg);
+}
+
+/* ─── Webcam ────────────────────────────────────────────────────────────────── */
+.webcam-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.webcam-frame {
+  position: relative;
+  /* Roughly a third of the viewport — 4:3 aspect ratio rectangle */
+  width: min(560px, 90%);
+  aspect-ratio: 4 / 3;
+  border-radius: 24px;
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+}
+
+.webcam-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.webcam-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s;
+  transform: scaleX(-1); /* mirror */
+}
+.webcam-video.visible { opacity: 1; }
+
+.webcam-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.webcam-status {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.status-dot.active { background: #22c55e; }
+.status-dot.requesting { background: #f59e0b; }
+.status-dot.error { background: #ef4444; }
+
+/* ─── Sign display cards ────────────────────────────────────────────────────── */
+.sign-display-row {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stat-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+/* ─── Output bar ────────────────────────────────────────────────────────────── */
+.output-bar {
+  padding: 1rem 2.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.text-output {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.text-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-output-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.text-output-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-icon {
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: background 0.12s;
+}
+.btn-icon:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.btn-icon:disabled { opacity: 0.35; cursor: default; }
+
+.text-output-body {
+  font-size: 1.1rem;
+  min-height: 1.6em;
+  letter-spacing: 0.04em;
+}
+
+.muted { color: var(--text-muted); }
+
+/* ─── Footer info strip ─────────────────────────────────────────────────────── */
+.info-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.info-block {
+  padding: 1.4rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-right: 1px solid var(--border);
+}
+.info-block:last-child { border-right: none; }
+
+.info-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.info-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-left { border-right: none; border-bottom: 1px solid var(--border); padding: 2.5rem 1.5rem; }
+  .hero-right { padding: 2rem 1.5rem; }
+  .info-strip { grid-template-columns: 1fr; }
+  .info-block { border-right: none; border-bottom: 1px solid var(--border); }
+  .nav { padding: 0 1.25rem; }
+  .nav-links { display: none; }
+}
