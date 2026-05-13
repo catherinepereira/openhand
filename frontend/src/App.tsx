@@ -4,25 +4,34 @@ import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
 import { useWebcam } from "./hooks/useWebcam";
 import { useSignDetection } from "./hooks/useSignDetection";
+import { useTranscribe } from "./hooks/useTranscribe";
 import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
 const TTS_ENDPOINT = "http://localhost:8273/api/tts";
 
+type Mode = "live" | "transcribe";
+
 export default function App() {
   const { videoRef, status, error, start, stop } = useWebcam();
   const isActive = status === "active";
-  const { result } = useSignDetection(videoRef, isActive);
+  const [mode, setMode] = useState<Mode>("live");
+  // Only run the live per-frame WebSocket detection when in live mode AND
+  // camera is active. Avoids spamming the backend in transcribe mode.
+  const liveActive = isActive && mode === "live";
+  const { result } = useSignDetection(videoRef, liveActive);
+  const transcribe = useTranscribe(videoRef);
 
   const [outputText, setOutputText] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [ttsEnabled] = useState(!!import.meta.env.VITE_TTS_ENABLED);
 
-  // Debounce detected sign into output text
+  // Debounce detected sign into output text (live mode only)
   const lastSignRef = useRef<string>("—");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (mode !== "live") return;
     const sign = result.sign;
     if (sign === "—" || sign === lastSignRef.current) return;
     debounceRef.current && clearTimeout(debounceRef.current);
@@ -30,7 +39,14 @@ export default function App() {
       lastSignRef.current = sign;
       setOutputText((prev) => prev + sign);
     }, SIGN_DEBOUNCE_MS);
-  }, [result.sign]);
+  }, [result.sign, mode]);
+
+  const handleTranscribeStop = useCallback(async () => {
+    const r = await transcribe.stop();
+    if (r && r.text) {
+      setOutputText((prev) => (prev ? prev + " " : "") + r.text);
+    }
+  }, [transcribe]);
 
   const handleClear = useCallback(() => {
     setOutputText("");
@@ -102,9 +118,56 @@ export default function App() {
             videoRef={videoRef}
             status={status}
             error={error}
-            landmarks={result.landmarks}
+            landmarks={mode === "live" ? result.landmarks : []}
           />
-          <SignDisplay sign={result.sign} confidence={result.confidence} />
+
+          {/* Mode toggle */}
+          <div className="mode-toggle" role="tablist" aria-label="Detection mode">
+            <button
+              role="tab"
+              aria-selected={mode === "live"}
+              className={`mode-tab ${mode === "live" ? "active" : ""}`}
+              onClick={() => setMode("live")}
+              disabled={transcribe.recording || transcribe.busy}
+            >
+              Live letter
+            </button>
+            <button
+              role="tab"
+              aria-selected={mode === "transcribe"}
+              className={`mode-tab ${mode === "transcribe" ? "active" : ""}`}
+              onClick={() => setMode("transcribe")}
+            >
+              Phrase transcribe
+            </button>
+          </div>
+
+          {mode === "live" ? (
+            <SignDisplay sign={result.sign} confidence={result.confidence} />
+          ) : (
+            <div className="transcribe-controls">
+              <button
+                className={`btn-record ${transcribe.recording ? "recording" : ""}`}
+                disabled={!isActive || transcribe.busy}
+                onMouseDown={transcribe.start}
+                onMouseUp={handleTranscribeStop}
+                onMouseLeave={transcribe.recording ? handleTranscribeStop : undefined}
+                onTouchStart={(e) => { e.preventDefault(); transcribe.start(); }}
+                onTouchEnd={(e) => { e.preventDefault(); handleTranscribeStop(); }}
+              >
+                {transcribe.busy
+                  ? "Transcribing…"
+                  : transcribe.recording
+                  ? "Recording — release to transcribe"
+                  : "Hold to sign a phrase"}
+              </button>
+              {transcribe.lastResult && (
+                <p className="transcribe-meta">
+                  {transcribe.lastResult.frameCount} frames · {Math.round(transcribe.lastResult.elapsedMs)} ms
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </main>
 

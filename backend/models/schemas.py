@@ -22,3 +22,15 @@ class TTSRequest(BaseModel):
 class TTSResponse(BaseModel):
     audio_url: Optional[str] = None
     error: Optional[str] = None
+
+
+class TranscribeRequest(BaseModel):
+    """A short buffer of base64-encoded JPEG frames to be transcribed by the
+    CTC fingerspelling model."""
+    frames: list[str]
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+    frame_count: int
+    elapsed_ms: float

@@ -213,6 +213,68 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   pointer-events: none;
 }
 
+/* ─── Mode toggle ──────────────────────────────────────────────────────── */
+.mode-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--surface);
+  gap: 2px;
+}
+.mode-tab {
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-tab.active {
+  background: var(--text);
+  color: #fff;
+}
+.mode-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Transcribe controls ──────────────────────────────────────────────── */
+.transcribe-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-record {
+  padding: 0.85rem 2rem;
+  background: var(--text);
+  color: #fff;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  min-width: 280px;
+  transition: background 0.15s, transform 0.05s;
+  user-select: none;
+}
+.btn-record:hover:not(:disabled) { opacity: 0.9; }
+.btn-record:active:not(:disabled) { transform: scale(0.99); }
+.btn-record.recording {
+  background: #d33b3b;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.btn-record:disabled { opacity: 0.5; cursor: not-allowed; }
+.transcribe-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(211, 59, 59, 0.35); }
+  50%      { box-shadow: 0 0 0 10px rgba(211, 59, 59, 0); }
+}
+
 .webcam-status {
   font-size: 0.82rem;
   color: var(--text-muted);
