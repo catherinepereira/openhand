@@ -1,85 +1,99 @@
 import asyncio
-import json
 import time
-from threading import Lock
 
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
-from ..models.schemas import TTSRequest, TranscribeRequest, TranscribeResponse
+from ..models.schemas import (
+    DetectionResult,
+    DetectLandmarksRequest,
+    TTSRequest,
+    TranscribeLandmarksRequest,
+    TranscribeResponse,
+)
 from ..services.classifier import SignClassifier
 from ..services.ctc_classifier import CTCClassifier
-from ..services.holistic_service import HolisticDetector
-from ..services.mediapipe_service import HandDetector
+from ..services.ctc_landmarks import N_FEATURES, N_LANDMARKS
 from ..services.tts import text_to_speech
 
 router = APIRouter()
 
-detector = HandDetector()
+# Alphabet classifier is small + fast to load; instantiate eagerly so the
+# first WebSocket frame doesn't pay startup cost.
 classifier = SignClassifier()
 
-# Heavy CTC components are lazy-loaded on first transcribe call so the live
-# alphabet flow starts up fast even if these aren't needed yet.
-_holistic: HolisticDetector | None = None
+# CTC classifier ONNX is 116 MB; lazy-load on first transcribe call so
+# the live-letter flow starts up fast even if nobody uses transcribe.
 _ctc: CTCClassifier | None = None
 
-# MediaPipe HandLandmarker in IMAGE mode is not safe to call from multiple
-# threads at once. Serialise calls so concurrent WebSocket clients don't race.
-_detect_lock = Lock()
-_holistic_lock = Lock()
 
-
-def _detect(data: str):
-    with _detect_lock:
-        return detector.process_frame(data)
-
-
-def _get_ctc() -> tuple[HolisticDetector, CTCClassifier]:
-    global _holistic, _ctc
-    if _holistic is None:
-        _holistic = HolisticDetector()
+def _get_ctc() -> CTCClassifier:
+    global _ctc
     if _ctc is None:
         _ctc = CTCClassifier()
-    return _holistic, _ctc
+    return _ctc
 
 
-def _run_transcribe(frames: list[str]) -> tuple[str, int]:
-    holistic, ctc = _get_ctc()
-    feats, masks = [], []
-    with _holistic_lock:
-        for f in frames:
-            r = holistic.process_frame(f)
-            if r is None:
-                continue
-            vec, miss = r
-            feats.append(vec)
-            masks.append(miss)
-    if not feats:
-        return "", 0
-    arr = np.stack(feats, axis=0)
-    miss = np.stack(masks, axis=0)
-    return ctc.transcribe(arr, miss), len(feats)
+# ─── live-letter (browser MediaPipe → backend ONNX MLP) ─────────────────
 
+@router.websocket("/ws/detect-landmarks")
+async def detect_landmarks_ws(websocket: WebSocket):
+    """Per-frame letter detection from pre-extracted hand landmarks.
 
-@router.websocket("/ws/detect")
-async def detect_ws(websocket: WebSocket):
-    """Receive base64 frames, return detection results as JSON."""
+    Browser runs MediaPipe locally and sends one ``DetectLandmarksRequest``
+    per frame; the backend runs the alphabet MLP against the "Right" hand
+    (camera POV) and returns a ``DetectionResult``.
+    """
     await websocket.accept()
+    empty = DetectionResult(sign="—", confidence=0.0, hands=[]).model_dump_json()
     try:
         while True:
-            data = await websocket.receive_text()
-            landmarks, _ = await asyncio.to_thread(_detect, data)
-            result = classifier.classify(landmarks)
-            if result:
-                await websocket.send_text(result.model_dump_json())
-            else:
-                await websocket.send_text(
-                    json.dumps({"sign": "—", "confidence": 0.0, "landmarks": []})
-                )
+            payload = await websocket.receive_json()
+            try:
+                req = DetectLandmarksRequest.model_validate(payload)
+            except Exception:
+                await websocket.send_text(empty)
+                continue
+            result = classifier.classify(req.hands)
+            await websocket.send_text(result.model_dump_json())
     except WebSocketDisconnect:
         pass
 
+
+# ─── phrase transcription (browser MediaPipe → backend CTC ONNX) ────────
+
+@router.post("/api/transcribe-landmarks", response_model=TranscribeResponse)
+async def transcribe_landmarks_endpoint(req: TranscribeLandmarksRequest):
+    """Transcribe a fingerspelling clip whose landmarks were extracted by
+    MediaPipe in the browser. The body shape matches the CTC model's
+    input directly — no MediaPipe runs server-side.
+    """
+    T = req.frame_count
+    if T == 0:
+        return TranscribeResponse(text="", frame_count=0, elapsed_ms=0.0)
+    if len(req.features) != T * N_FEATURES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"features length {len(req.features)} != frame_count {T} * {N_FEATURES}",
+        )
+    if len(req.missing) != T * N_LANDMARKS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"missing length {len(req.missing)} != frame_count {T} * {N_LANDMARKS}",
+        )
+
+    features = np.array(req.features, dtype=np.float32).reshape(T, N_FEATURES)
+    missing = np.array(req.missing, dtype=bool).reshape(T, N_LANDMARKS)
+
+    ctc = _get_ctc()
+    t0 = time.perf_counter()
+    text = await asyncio.to_thread(ctc.transcribe, features, missing)
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+    return TranscribeResponse(text=text, frame_count=T, elapsed_ms=elapsed_ms)
+
+
+# ─── misc ────────────────────────────────────────────────────────────────
 
 @router.post("/api/tts")
 async def tts_endpoint(req: TTSRequest):
@@ -87,21 +101,6 @@ async def tts_endpoint(req: TTSRequest):
     if audio is None:
         return {"error": "ElevenLabs API key not configured or request failed"}
     return Response(content=audio, media_type="audio/mpeg")
-
-
-@router.post("/api/transcribe", response_model=TranscribeResponse)
-async def transcribe_endpoint(req: TranscribeRequest):
-    """Transcribe a short clip of fingerspelling.
-
-    Accepts up to ~10 seconds of webcam frames at ~10 fps (~100 frames).
-    Runs each through MediaPipe Holistic, builds the (T, 390) landmark
-    sequence, and runs the CTC transformer to produce a string."""
-    if not req.frames:
-        return TranscribeResponse(text="", frame_count=0, elapsed_ms=0.0)
-    t0 = time.perf_counter()
-    text, frame_count = await asyncio.to_thread(_run_transcribe, req.frames)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
-    return TranscribeResponse(text=text, frame_count=frame_count, elapsed_ms=elapsed_ms)
 
 
 @router.get("/api/health")

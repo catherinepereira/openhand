@@ -1,6 +1,12 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { HTTP_ENDPOINTS } from "../config";
+import {
+  FRAME_FEATURES,
+  FRAME_LANDMARKS,
+  buildFrameFeatures,
+} from "../lib/landmarks";
+import { createDetectors, detectFrame, type MediaPipeDetectors } from "../lib/mediapipe";
 
-const TRANSCRIBE_ENDPOINT = "http://localhost:8273/api/transcribe";
 const FRAME_INTERVAL_MS = 100;
 // Hard cap on how long a single hold can be — 12s at 10fps = 120 frames.
 const MAX_FRAMES = 120;
@@ -11,34 +17,78 @@ export interface TranscribeResult {
   elapsedMs: number;
 }
 
+interface FrameBuffer {
+  /** Flat (T * FRAME_FEATURES,) Float32Array, row-major. */
+  features: number[];
+  /** Flat (T * FRAME_LANDMARKS,) bool, row-major. */
+  missing: boolean[];
+  frameCount: number;
+}
+
+/**
+ * Hold-to-record phrase transcription.
+ *
+ * While the user holds the button, MediaPipe extracts landmarks in the
+ * browser every 100ms and pushes the packed features + missing mask into
+ * a rolling buffer. On release we POST the buffer to the backend, which
+ * runs the CTC model and returns the transcription.
+ */
 export function useTranscribe(videoRef: React.RefObject<HTMLVideoElement>) {
-  const canvasRef = useRef<HTMLCanvasElement>(document.createElement("canvas"));
-  const framesRef = useRef<string[]>([]);
+  const detectorsRef = useRef<MediaPipeDetectors | null>(null);
+  const bufferRef = useRef<FrameBuffer>({ features: [], missing: [], frameCount: 0 });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<TranscribeResult | null>(null);
 
-  const captureFrame = useCallback((): string | null => {
+  // Eager-init detectors so the first hold doesn't pay the model-load cost.
+  useEffect(() => {
+    let cancelled = false;
+    createDetectors("image")
+      .then((d) => {
+        if (cancelled) {
+          d.close();
+          return;
+        }
+        detectorsRef.current = d;
+      })
+      .catch((err) => {
+        console.error("MediaPipe detector init failed:", err);
+      });
+    return () => {
+      cancelled = true;
+      detectorsRef.current?.close();
+      detectorsRef.current = null;
+    };
+  }, []);
+
+  const captureFrame = useCallback(() => {
+    const detectors = detectorsRef.current;
     const video = videoRef.current;
-    if (!video || video.readyState < 2) return null;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(video, 0, 0);
-    return canvas.toDataURL("image/jpeg", 0.6);
+    if (!detectors || !video || video.readyState < 2) return;
+
+    let detection;
+    try {
+      detection = detectFrame(detectors, video, performance.now());
+    } catch {
+      return;
+    }
+
+    const { features, missing } = buildFrameFeatures(detection.landmarks);
+    const buf = bufferRef.current;
+    for (let i = 0; i < features.length; i++) buf.features.push(features[i]);
+    for (let i = 0; i < missing.length; i++) buf.missing.push(missing[i] !== 0);
+    buf.frameCount++;
   }, [videoRef]);
 
   const start = useCallback(() => {
     if (recording || busy) return;
-    framesRef.current = [];
+    bufferRef.current = { features: [], missing: [], frameCount: 0 };
     setRecording(true);
     intervalRef.current = setInterval(() => {
-      if (framesRef.current.length >= MAX_FRAMES) return;
-      const f = captureFrame();
-      if (f) framesRef.current.push(f);
+      if (bufferRef.current.frameCount >= MAX_FRAMES) return;
+      captureFrame();
     }, FRAME_INTERVAL_MS);
   }, [recording, busy, captureFrame]);
 
@@ -47,16 +97,21 @@ export function useTranscribe(videoRef: React.RefObject<HTMLVideoElement>) {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
     setRecording(false);
-    const frames = framesRef.current;
-    framesRef.current = [];
-    if (frames.length === 0) return null;
+
+    const buf = bufferRef.current;
+    bufferRef.current = { features: [], missing: [], frameCount: 0 };
+    if (buf.frameCount === 0) return null;
 
     setBusy(true);
     try {
-      const res = await fetch(TRANSCRIBE_ENDPOINT, {
+      const res = await fetch(HTTP_ENDPOINTS.transcribe, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frames }),
+        body: JSON.stringify({
+          frame_count: buf.frameCount,
+          features: buf.features,
+          missing: buf.missing,
+        }),
       });
       if (!res.ok) return null;
       const data = await res.json();
@@ -75,4 +130,14 @@ export function useTranscribe(videoRef: React.RefObject<HTMLVideoElement>) {
   }, [recording]);
 
   return { recording, busy, lastResult, start, stop };
+}
+
+// Module-load sanity: detect at build time if FRAME_FEATURES /
+// FRAME_LANDMARKS ever diverges, since this file constructs the payload
+// directly without further reshaping.
+if (FRAME_FEATURES !== FRAME_LANDMARKS * 3) {
+  throw new Error(
+    `useTranscribe expects FRAME_FEATURES == FRAME_LANDMARKS * 3, got ` +
+      `${FRAME_FEATURES} vs ${FRAME_LANDMARKS * 3}`,
+  );
 }

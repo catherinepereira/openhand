@@ -198,10 +198,15 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `fill` not `cover`: the displayed video stretches exactly to the
+     box, so its display rect matches the canvas overlay's display rect
+     pixel-perfectly. Any aspect drift between the 4:3 source and the
+     near-4:3 box is absorbed as a fractional stretch instead of as a
+     crop, keeping coordinates aligned with the canvas. */
+  object-fit: fill;
   opacity: 0;
   transition: opacity 0.3s;
-  transform: scaleX(-1); /* mirror */
+  transform: scaleX(-1); /* selfie mirror (display-only) */
 }
 .webcam-video.visible { opacity: 1; }
 

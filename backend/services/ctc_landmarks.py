@@ -1,13 +1,17 @@
 """
 Landmark selection for the CTC fingerspelling model.
 
-Mirrors openhand-model/model/landmarks.py exactly: same indices, same order,
-same normalisation. Lives here so the backend doesn't need a build-time
-dependency on the training repo.
+**MUST stay in sync with** ``openhand-model/model/landmarks.py``. This is a
+deliberate copy (the backend doesn't import from the training repo). The
+index lists, group order, and ``normalize_sequence`` body must match
+exactly — drift here means the deployed CTC ONNX silently sees inputs in
+the wrong format and produces garbage.
 
-The CTC ONNX consumes (B, T, 390) tensors where each frame's 390 floats are:
+The CTC ONNX consumes (B, T, N_FEATURES) tensors where each frame's floats
+are laid out as:
   40 lips × 3 + 16 left-eye × 3 + 16 right-eye × 3 + 4 nose × 3
   + 9 pose × 3 + 21 left-hand × 3 + 21 right-hand × 3
+  = 127 landmarks × 3 = 381 floats
 """
 
 from __future__ import annotations
@@ -28,7 +32,7 @@ NOSE_IDX = [1, 2, 98, 327]
 POSE_IDX = [0, 11, 12, 13, 14, 15, 16, 23, 24]
 HAND_IDX = list(range(21))
 
-# Group offsets in the 390-feature vector (in units of *features*, i.e. ×3 of
+# Group offsets in the feature vector (in units of *features*, i.e. ×3 of
 # the landmark indices). The right-wrist anchor lives at offset
 # GROUP_OFFSETS["right_hand"] (this is what training's normalize_sequence
 # uses).

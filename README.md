@@ -67,18 +67,33 @@ openhand/
 
 ## Running locally
 
-The trained ONNX model and the MediaPipe hand-landmarker `.task` file
-are checked in under `backend/models/artifacts/` — nothing to download on
-first run.
+The alphabet MLP (`asl_classifier.onnx`, ~250 KB) is checked into the
+repo. The MediaPipe `.task` files (~17 MB total) and the CTC transcribe
+model (`asl_ctc.onnx`, 116 MB) are not — they need to be fetched on
+first setup. See "First-time setup" below.
 
-### Backend
+### First-time setup
 ```powershell
+# Backend
 cd openhand/backend
 python -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-# Run from the project root so the package import path resolves:
-cd ..
+
+# Download MediaPipe Hand/Pose/Face .task files (idempotent)
+python scripts/download_models.py
+
+# CTC transcribe model isn't downloaded automatically — copy it from
+# the training repo. The transcribe endpoint will fail if missing, but
+# the live letter path still works without it.
+cp ../../openhand-model/exports/ctc/asl_ctc.onnx       models/artifacts/
+cp ../../openhand-model/exports/ctc/model_meta.json    models/artifacts/asl_ctc_meta.json
+```
+
+### Backend
+```powershell
+cd openhand
+.\backend\venv\Scripts\Activate.ps1
 uvicorn backend.main:app --host 0.0.0.0 --port 8273 --reload
 ```
 

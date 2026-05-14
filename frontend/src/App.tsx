@@ -5,10 +5,10 @@ import { TextOutput } from "./components/TextOutput";
 import { useWebcam } from "./hooks/useWebcam";
 import { useSignDetection } from "./hooks/useSignDetection";
 import { useTranscribe } from "./hooks/useTranscribe";
+import { HTTP_ENDPOINTS } from "./config";
 import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
-const TTS_ENDPOINT = "http://localhost:8273/api/tts";
 
 type Mode = "live" | "transcribe";
 
@@ -57,7 +57,7 @@ export default function App() {
     if (!outputText || speaking) return;
     setSpeaking(true);
     try {
-      const res = await fetch(TTS_ENDPOINT, {
+      const res = await fetch(HTTP_ENDPOINTS.tts, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: outputText }),
@@ -118,7 +118,7 @@ export default function App() {
             videoRef={videoRef}
             status={status}
             error={error}
-            landmarks={mode === "live" ? result.landmarks : []}
+            hands={mode === "live" ? result.hands : []}
           />
 
           {/* Mode toggle */}
