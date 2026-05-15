@@ -2,15 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
-import { LearnPanel } from "./components/LearnScreen";
+import { LearnPanel } from "./components/LearnPanel";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
-import { useStreamingTranscribe } from "./hooks/useStreamingTranscribe";
 import { HTTP_ENDPOINTS } from "./config";
 import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
+// Sliding-window cap on the accumulated output. Older letters scroll off
+// the front so the bar stays a reasonable length without ever needing a
+// manual clear.
+const OUTPUT_MAX_CHARS = 30;
 
 type View = "home" | "learn";
 
@@ -21,10 +24,6 @@ export default function App() {
 
   const { detection } = useMediaPipe(videoElementRef, isActive);
   const { result: liveResult } = useSignDetection(detection, isActive);
-  // Streaming phrase transcription only runs on the home view; Learn has
-  // its own CTC consumer (useTargetedTranscribe) and we don't want two
-  // separate CTC decoders competing for the same backend.
-  const transcribe = useStreamingTranscribe(detection, isActive && view === "home");
 
   const [outputText, setOutputText] = useState("");
   const [speaking, setSpeaking] = useState(false);
@@ -47,7 +46,12 @@ export default function App() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       lastSignRef.current = sign;
-      setOutputText((prev) => prev + sign);
+      setOutputText((prev) => {
+        const next = prev + sign;
+        return next.length > OUTPUT_MAX_CHARS
+          ? next.slice(-OUTPUT_MAX_CHARS)
+          : next;
+      });
     }, SIGN_DEBOUNCE_MS);
   }, [liveResult.sign]);
 
@@ -88,9 +92,13 @@ export default function App() {
       <header className="nav">
         <div className="nav-logo">OpenHand <span>🤟</span></div>
         <nav className="nav-links">
-          <a href="#">How it works</a>
-          <a href="#">Docs</a>
-          <a href="#">GitHub</a>
+          <a
+            href="https://github.com/catherinepereira/openhand"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            GitHub
+          </a>
         </nav>
         <button
           className="btn-launch"
@@ -110,10 +118,10 @@ export default function App() {
               <div className="badge">OPEN SOURCE · REAL-TIME</div>
               <h1 className="hero-heading">
                 Sign language,<br />
-                <strong>understood.</strong>
+                <strong>to speech.</strong>
               </h1>
               <p className="hero-sub">
-                Point your camera. OpenHand detects signs as you make them and converts to text and speech in real time.
+                OpenHand detects signs as you make them and converts to text and speech in real time.
               </p>
               <div className="hero-ctas">
                 <button className="btn-primary" onClick={isActive ? stop : start}>
@@ -138,65 +146,36 @@ export default function App() {
             status={status}
             error={error}
             hands={showSkeleton ? liveResult.hands : []}
+            showSkeleton={showSkeleton}
+            onShowSkeletonChange={setShowSkeleton}
           />
-
-          <label className="skeleton-toggle">
-            <input
-              type="checkbox"
-              checked={showSkeleton}
-              onChange={(e) => setShowSkeleton(e.target.checked)}
-            />
-            Show skeleton
-          </label>
 
           <SignDisplay sign={liveResult.sign} confidence={liveResult.confidence} />
 
-          {view === "home" && isActive && (
-            <div className="phrase-display">
-              <span className="phrase-label">PHRASE</span>
-              <span className="phrase-value">
-                {transcribe.text ? (
-                  <>
-                    <span className="phrase-committed">{transcribe.text}</span>
-                    {transcribe.tentative && (
-                      <span className="phrase-tentative"> {transcribe.tentative}</span>
-                    )}
-                  </>
-                ) : transcribe.tentative ? (
-                  <span className="phrase-tentative">{transcribe.tentative}</span>
-                ) : (
-                  <em className="phrase-placeholder">...</em>
-                )}
-              </span>
-            </div>
+          {(isActive || outputText) && (
+            <TextOutput
+              text={outputText}
+              onClear={handleClear}
+              onSpeak={handleSpeak}
+              ttsEnabled={ttsEnabled}
+              speaking={speaking}
+            />
           )}
         </div>
       </main>
 
-      {view === "home" && (isActive || outputText) && (
-        <div className="output-bar">
-          <TextOutput
-            text={outputText}
-            onClear={handleClear}
-            onSpeak={handleSpeak}
-            ttsEnabled={ttsEnabled}
-            speaking={speaking}
-          />
-        </div>
-      )}
-
       <footer className="info-strip">
         <div className="info-block">
           <span className="info-label">DETECTION</span>
-          <span className="info-value">MediaPipe + classifier</span>
+          <span className="info-value">MediaPipe Hand Landmarks (JS)</span>
+        </div>
+        <div className="info-block">
+          <span className="info-label">CLASSIFICATION</span>
+          <span className="info-value">MLP (per sign) and CTC (phrase transcription)</span>
         </div>
         <div className="info-block">
           <span className="info-label">OUTPUT</span>
-          <span className="info-value">Text · Speech (ElevenLabs)</span>
-        </div>
-        <div className="info-block">
-          <span className="info-label">PRIVACY</span>
-          <span className="info-value">Runs locally</span>
+          <span className="info-value">TTS (ElevenLabs)</span>
         </div>
       </footer>
     </div>

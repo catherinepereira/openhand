@@ -10,6 +10,9 @@ interface Props {
   /** Every visible hand, tagged with handedness, in MediaPipe normalized
    *  coords (x, y in [0,1] of the raw unmirrored frame). */
   hands: DetectedHand[];
+  /** Whether the skeleton overlay is drawn. Controlled by parent. */
+  showSkeleton: boolean;
+  onShowSkeletonChange: (next: boolean) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -84,7 +87,14 @@ function drawHand(
   }
 }
 
-export function WebcamFeed({ videoRef, status, error, hands }: Props) {
+export function WebcamFeed({
+  videoRef,
+  status,
+  error,
+  hands,
+  showSkeleton,
+  onShowSkeletonChange,
+}: Props) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const videoEl = useRef<HTMLVideoElement | null>(null);
 
@@ -133,6 +143,22 @@ export function WebcamFeed({ videoRef, status, error, hands }: Props) {
           className={`webcam-video ${status === "active" ? "visible" : ""}`}
         />
         <canvas ref={overlayRef} className="webcam-overlay" />
+
+        {status === "active" && (
+          <label className="skeleton-toggle">
+            <span className="skeleton-toggle-label">Skeleton</span>
+            <span className="switch">
+              <input
+                type="checkbox"
+                checked={showSkeleton}
+                onChange={(e) => onShowSkeletonChange(e.target.checked)}
+              />
+              <span className="switch-track" aria-hidden="true">
+                <span className="switch-thumb" />
+              </span>
+            </span>
+          </label>
+        )}
       </div>
       <p className="webcam-status">
         <span className={`status-dot ${status}`} />

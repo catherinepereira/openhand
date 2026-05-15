@@ -19,16 +19,13 @@ backend/**/__pycache__/
 backend/.env
 frontend/.env
 
-# Model artifacts split policy:
-#   - Alphabet MLP (asl_classifier.onnx, ~250KB, plus model_meta.json) is
-#     checked in; tiny, needed for the live-letter path.
-#   - CTC transformer (asl_ctc.onnx, ~116MB, plus asl_ctc_meta.json) is
-#     gitignored; too large for GitHub. Produced by openhand-model and
-#     copied here manually.
-#   - MediaPipe .task files are gitignored; fetched by the frontend
-#     download script after npm install.
-backend/models/artifacts/asl_ctc.onnx
-backend/models/artifacts/asl_ctc_meta.json
+# Model artifacts: none of these are checked in. The user trains them in
+# openhand-model and copies the outputs into backend/models/artifacts/.
+# See README "Setting up the models" for the full list and where each
+# one comes from. The directory itself is kept (with a .gitkeep) so the
+# path exists on a fresh clone.
+backend/models/artifacts/*.onnx
+backend/models/artifacts/*.json
 backend/models/artifacts/*.task
 backend/models/artifacts/*.bak
 backend/models/artifacts/_per_letter/
@@ -40,10 +37,11 @@ dist/
 dist-ssr/
 *.local
 
-# Editor / OS
+# Editor / OS / agent state
 .vscode/
 !.vscode/extensions.json
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 *.swp

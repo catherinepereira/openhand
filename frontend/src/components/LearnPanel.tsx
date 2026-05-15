@@ -36,12 +36,13 @@ interface Props {
 }
 
 /**
- * Static-frame grading for handshape-only letters (everything except J/Z).
+ * Static-frame grading via the alphabet MLP. If the classifier's argmax
+ * matches the target, its confidence number directly tells us how close
+ * the user is. If the argmax is a different letter, we grade red.
  *
- * The classifier returns a single argmax letter plus its confidence. If
- * the argmax matches the target, the confidence value directly tells us
- * how close the user is. Below 0.85 confidence we mark yellow; if the
- * argmax is a different letter we mark red.
+ * Thresholds are loose-ish (0.85 / 0.5) so a correctly-formed sign sits
+ * comfortably in green; the alphabet model averages ~0.95+ confidence on
+ * its test set, so we have headroom.
  */
 function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
   if (detection.hands.length === 0) return "none";
@@ -57,12 +58,6 @@ function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
  * rolling 2-second window will contain garbage between meaningful gestures
  * (the CTC model was trained on continuous fingerspelling, not isolated
  * letters), so we look for the target letter anywhere in the decode.
- *
- * Green:  target letter appears in the decode.
- * Yellow: hand is visible and the decode is non-empty but doesn't yet
- *         contain the target.
- * Red:    decode is empty.
- * None:   no hand in frame.
  */
 function gradeMotion(
   targetLetter: string,
@@ -102,9 +97,7 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
   const [target, setTarget] = useState<string>("A");
 
   const isMotion = MOTION_LETTERS.has(target);
-  // Only run the CTC decode loop for motion letters; for everything else
-  // the static classifier is enough and the CTC traffic is pure overhead
-  // (the backend ONNX inference is CPU-bound and ~50-150ms per call).
+  // CTC decode for motion letters only.
   const ctc = useTargetedTranscribe(frameDetection, active && isMotion);
 
   useEffect(() => {
@@ -147,22 +140,6 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
         <h2 className="learn-title">Learn the signs</h2>
       </div>
 
-      <div className="letter-grid">
-        {LETTERS.map((l) => {
-          const available = refs?.letters[l] !== undefined;
-          return (
-            <button
-              key={l}
-              className={`letter-tile ${l === target ? "selected" : ""} ${available ? "" : "disabled"}`}
-              onClick={() => available && setTarget(l)}
-              disabled={!available}
-            >
-              {l}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="reference-block">
         <div className="learn-panel-label">REFERENCE - {target}</div>
         <div className="learn-3d-wrap">
@@ -180,6 +157,22 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
         </div>
       </div>
 
+      <div className="letter-grid">
+        {LETTERS.map((l) => {
+          const available = refs?.letters[l] !== undefined;
+          return (
+            <button
+              key={l}
+              className={`letter-tile ${l === target ? "selected" : ""} ${available ? "" : "disabled"}`}
+              onClick={() => available && setTarget(l)}
+              disabled={!available}
+            >
+              {l}
+            </button>
+          );
+        })}
+      </div>
+
       <div
         className="grade-bar"
         style={{ borderColor: GRADE_COLOR[grade] }}
@@ -192,10 +185,12 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
         {isMotion ? (
           <span className="grade-detail">
             {ctc.unavailable
-              ? "CTC model unavailable; using static grade"
-              : ctc.latest
-                ? <>decode <strong>{ctc.latest}</strong></>
-                : "move your hand"}
+              ? "CTC model unavailable"
+              : detection.hands.length === 0
+                ? null
+                : ctc.latest
+                  ? <>decode <strong>{ctc.latest.slice(-1).toUpperCase()}</strong></>
+                  : "move your hand"}
           </span>
         ) : (
           grade !== "none" && detection.sign !== "-" && (

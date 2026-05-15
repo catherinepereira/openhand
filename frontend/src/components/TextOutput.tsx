@@ -1,3 +1,5 @@
+import { EraserIcon } from "./icons";
+
 interface Props {
   text: string;
   onClear: () => void;
@@ -17,8 +19,8 @@ export function TextOutput({ text, onClear, onSpeak, ttsEnabled, speaking }: Pro
               {speaking ? "⏸" : "🔊"}
             </button>
           )}
-          <button className="btn-icon" onClick={onClear} disabled={!text} title="Clear">
-            ✕
+          <button className="btn-icon" onClick={onClear} disabled={!text} title="Clear" aria-label="Clear output">
+            <EraserIcon />
           </button>
         </div>
       </div>

@@ -62,11 +62,10 @@ openhand/
   start-frontend.ps1
 ```
 
-Trained model weights and training code live in a sibling repo,
-[openhand-model](../openhand-model). The alphabet model is small enough
-(~250KB ONNX) that it's checked into this repo at
-`backend/models/artifacts/asl_classifier.onnx`. The CTC model is 116MB
-and isn't; you fetch it from the model repo (see below).
+**This repo is the app shell. None of the model files are checked in.**
+You train them in the sibling repo
+[openhand-model](../openhand-model) and copy the outputs into
+`backend/models/artifacts/`. See "Setting up the models" below.
 
 ## Setup
 
@@ -95,18 +94,36 @@ cd ..
 On macOS / Linux the venv activation is `source backend/venv/bin/activate`
 and the rest is the same.
 
-That's enough to run the alphabet path. The phrase transcription path
-needs the CTC ONNX too:
+### Setting up the models
+
+The backend won't start until at least the alphabet artifacts are present.
+Everything below lives under `backend/models/artifacts/` (gitignored).
+
+| File | Size | Required? | Where it comes from |
+|------|------|-----------|---------------------|
+| `asl_classifier.onnx` | ~250 KB | yes | `openhand-model/scripts/train.py` + `export_onnx.py` |
+| `model_meta.json` | ~1 KB | yes | written by `train.py` |
+| `reference_landmarks.json` | ~35 KB | yes (Learn screen) | `openhand-model/scripts/build_reference_landmarks.py` |
+| `asl_ctc.onnx` | ~116 MB | optional (phrase transcribe) | `openhand-model/scripts/train_ctc.py` + `export_ctc_onnx.py` |
+| `asl_ctc_meta.json` | ~15 KB | optional | written by `train_ctc.py` |
+
+Once the model repo has run its training scripts (see its README), copy
+the artifacts over:
 
 ```powershell
-# Train and export it from the model repo (see openhand-model/README.md)
-# then copy the artifacts in:
-copy ..\openhand-model\exports\ctc\asl_ctc.onnx    backend\models\artifacts\
-copy ..\openhand-model\exports\ctc\model_meta.json backend\models\artifacts\asl_ctc_meta.json
+# Alphabet path + Learn screen
+copy ..\openhand-model\exports\asl_classifier.onnx       backend\models\artifacts\
+copy ..\openhand-model\exports\model_meta.json           backend\models\artifacts\
+copy ..\openhand-model\exports\reference_landmarks.json  backend\models\artifacts\
+
+# Phrase transcription (optional)
+copy ..\openhand-model\exports\ctc\asl_ctc.onnx          backend\models\artifacts\
+copy ..\openhand-model\exports\ctc\model_meta.json       backend\models\artifacts\asl_ctc_meta.json
 ```
 
-If you skip this, the phrase display will sit at `...` and the WebSocket
-will close with an error message; the alphabet path still works.
+If the CTC files are missing, the phrase display stays at `...` and the
+WebSocket closes with an error; the alphabet path still works. If the
+alphabet files are missing, the backend will fail to start.
 
 ## Running
 

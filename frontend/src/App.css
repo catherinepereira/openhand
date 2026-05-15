@@ -172,8 +172,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .webcam-frame {
   position: relative;
-  /* Roughly a third of the viewport, 4:3 aspect ratio */
-  width: min(560px, 90%);
+  width: min(760px, 96%);
   aspect-ratio: 4 / 3;
   border-radius: 24px;
   background: var(--surface);
@@ -216,56 +215,80 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   pointer-events: none;
 }
 
-/* Show-skeleton toggle */
+/* Skeleton-overlay slider toggle, sits as a chip on the top-right of the
+   webcam frame. Hidden when the camera isn't active. */
 .skeleton-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
+  gap: 0.55rem;
+  padding: 0.4rem 0.65rem;
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   user-select: none;
   cursor: pointer;
 }
-.skeleton-toggle input { cursor: pointer; }
 
-/* Phrase transcription display */
-.phrase-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.85rem 1.25rem;
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  min-width: 280px;
-  max-width: 90%;
+.skeleton-toggle-label {
+  line-height: 1;
 }
-.phrase-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  font-weight: 600;
+
+/* Bare-bones slider switch. */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 16px;
 }
-.phrase-value {
-  font-size: 1rem;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  color: var(--text);
-  word-break: break-all;
-  text-align: center;
-  min-height: 1.2em;
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
 }
-.phrase-placeholder {
-  color: var(--text-muted);
-  font-style: normal;
+
+.switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.15s ease;
 }
-.phrase-committed {
-  color: var(--text);
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
 }
-.phrase-tentative {
-  color: var(--text-muted);
-  opacity: 0.65;
-  font-style: italic;
+
+.switch input:checked + .switch-track {
+  background: #3b82f6;
+}
+
+.switch input:checked + .switch-track .switch-thumb {
+  transform: translateX(14px);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid #ffffffaa;
+  outline-offset: 2px;
 }
 
 .webcam-status {
@@ -320,19 +343,16 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text);
 }
 
-/* Output bar */
-.output-bar {
-  padding: 1rem 2.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
 .text-output {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: min(760px, 96%);
+  padding: 0.85rem 1.1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
 }
 
 .text-output-header {
@@ -477,7 +497,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .learn-3d-wrap {
   position: relative;
-  height: 260px;
+  height: 420px;
   border-radius: 12px;
   background: var(--surface);
   overflow: hidden;
@@ -548,5 +568,5 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   .nav { padding: 0 1.25rem; }
   .nav-links { display: none; }
   .letter-grid { grid-template-columns: repeat(7, 1fr); }
-  .learn-3d-wrap { height: 220px; }
+  .learn-3d-wrap { height: 300px; }
 }
