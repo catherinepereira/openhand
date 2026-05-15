@@ -22,7 +22,7 @@ export function TextOutput({ text, onClear, onSpeak, ttsEnabled, speaking }: Pro
           </button>
         </div>
       </div>
-      <p className="text-output-body">{text || <span className="muted">—</span>}</p>
+      <p className="text-output-body">{text || <span className="muted">-</span>}</p>
     </div>
   );
 }

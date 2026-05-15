@@ -9,10 +9,8 @@ const TRANSCRIBE_CONFIG = {
   bufferFrames: 30,
   /** How often we send the buffer to the backend for re-decode, in ms. */
   decodeCadenceMs: 750,
-  /** Per-frame landmark-movement threshold (in MediaPipe normalised
-   *  coords) below which the hand is considered "still." If the
-   *  dominant hand moves less than this between consecutive frames,
-   *  the frame counts toward the pause counter. */
+  /** Per-frame landmark-movement threshold (in MediaPipe normalized
+   *  coords) below which the hand is considered "still." */
   stillnessThreshold: 0.01,
   /** Consecutive still-hand frames after which we commit the current
    *  tentative decode to the final text. At 10fps, 6 frames = 600 ms,

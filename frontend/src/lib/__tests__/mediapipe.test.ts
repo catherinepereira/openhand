@@ -1,10 +1,8 @@
 /**
- * Tests for the pure helpers in ``lib/mediapipe.ts``. Most of the module
- * wraps MediaPipe's async API and isn't easily unit-testable without
- * mocking the SDK; ``splitHands`` is the one pure piece worth pinning
- * because it controls which hand lands in which slot of our typed
- * RawFrameLandmarks structure (and getting that wrong silently breaks
- * downstream lefty handling).
+ * Tests for the pure helpers in lib/mediapipe.ts. Most of the module wraps
+ * MediaPipe's async API and isn't easily unit-testable without mocking the
+ * SDK; splitHands is the one pure piece worth pinning, since it controls
+ * which hand lands in which slot of RawFrameLandmarks.
  */
 
 import { describe, expect, it } from "vitest";
@@ -44,7 +42,7 @@ describe("splitHands", () => {
     expect(out.rightHand).toBeNull();
   });
 
-  it("places a left-labelled hand into the leftHand slot", () => {
+  it("places a left-labeled hand into the leftHand slot", () => {
     const leftLms = makeHand(0.1);
     const out = splitHands(makeResult([{ label: "Left", lms: leftLms }]));
     expect(out.leftHand).toBe(leftLms);
@@ -53,7 +51,7 @@ describe("splitHands", () => {
     expect(out.rightLabel).toBeNull();
   });
 
-  it("places a right-labelled hand into the rightHand slot", () => {
+  it("places a right-labeled hand into the rightHand slot", () => {
     const rightLms = makeHand(0.9);
     const out = splitHands(makeResult([{ label: "Right", lms: rightLms }]));
     expect(out.rightHand).toBe(rightLms);
@@ -75,7 +73,6 @@ describe("splitHands", () => {
   });
 
   it("ignores hands whose category isn't Left or Right", () => {
-    // MediaPipe can report "Unknown" or empty labels when uncertain.
     const lms = makeHand(0.5);
     const out = splitHands(makeResult([{ label: "Unknown", lms }]));
     expect(out.leftHand).toBeNull();

@@ -4,7 +4,7 @@ interface Props {
 }
 
 export function SignDisplay({ sign, confidence }: Props) {
-  const pct = confidence > 0 ? `${Math.round(confidence * 100)}%` : "—";
+  const pct = confidence > 0 ? `${Math.round(confidence * 100)}%` : "-";
 
   return (
     <div className="sign-display-row">

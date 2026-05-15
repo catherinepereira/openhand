@@ -13,7 +13,7 @@ interface Props {
 
 const STATUS_LABEL: Record<string, string> = {
   idle: "Waiting for camera",
-  requesting: "Requesting access…",
+  requesting: "Requesting access...",
   active: "Camera active",
   error: "Camera error",
 };

@@ -35,7 +35,7 @@ export function useSignDetection(
   const wsRef = useRef<WebSocket | null>(null);
   const overlayHandsRef = useRef<DetectedHand[]>([]);
   const [result, setResult] = useState<DetectionResult>({
-    sign: "—",
+    sign: "-",
     confidence: 0,
     hands: [],
   });
@@ -60,7 +60,7 @@ export function useSignDetection(
       try {
         const data = JSON.parse(e.data);
         setResult({
-          sign: data.sign ?? "—",
+          sign: data.sign ?? "-",
           confidence: data.confidence ?? 0,
           hands: overlayHandsRef.current,
         });
@@ -75,7 +75,7 @@ export function useSignDetection(
     if (!active) {
       wsRef.current?.close();
       wsRef.current = null;
-      setResult({ sign: "—", confidence: 0, hands: [] });
+      setResult({ sign: "-", confidence: 0, hands: [] });
       return;
     }
     connect();
@@ -107,9 +107,9 @@ export function useSignDetection(
 
     if (hands.length === 0) {
       setResult((prev) =>
-        prev.sign === "—" && prev.hands.length === 0
+        prev.sign === "-" && prev.hands.length === 0
           ? prev
-          : { sign: "—", confidence: 0, hands: [] },
+          : { sign: "-", confidence: 0, hands: [] },
       );
       return;
     }

@@ -38,7 +38,7 @@ def classifier() -> SignClassifier:
 
 def test_classify_empty_hands_returns_dash(classifier: SignClassifier) -> None:
     result = classifier.classify([])
-    assert result.sign == "—"
+    assert result.sign == "-"
     assert result.confidence == 0.0
     assert result.hands == []
 
@@ -50,7 +50,7 @@ def test_classify_wrong_landmark_count_returns_dash(classifier: SignClassifier) 
         landmarks=[Landmark(x=0.5, y=0.5, z=0.0)] * 10,
     )
     result = classifier.classify([short])
-    assert result.sign == "—"
+    assert result.sign == "-"
     assert len(result.hands) == 1
 
 
@@ -66,5 +66,5 @@ def test_classify_picks_right_hand(classifier: SignClassifier) -> None:
 
 def test_classify_no_right_hand_returns_dash(classifier: SignClassifier) -> None:
     result = classifier.classify([_hand("Left", x=0.1)])
-    assert result.sign == "—"
+    assert result.sign == "-"
     assert len(result.hands) == 1

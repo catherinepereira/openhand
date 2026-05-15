@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
+import { LearnScreen } from "./components/LearnScreen";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
@@ -11,9 +12,12 @@ import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
 
+type View = "home" | "learn";
+
 export default function App() {
   const { videoRef, status, error, start, stop } = useWebcam();
   const isActive = status === "active";
+  const [view, setView] = useState<View>("home");
 
   const { detection } = useMediaPipe(videoRef, isActive);
   const { result: liveResult } = useSignDetection(detection, isActive);
@@ -24,12 +28,19 @@ export default function App() {
   const [ttsEnabled] = useState(!!import.meta.env.VITE_TTS_ENABLED);
   const [showSkeleton, setShowSkeleton] = useState(true);
 
+  const enterLearn = useCallback(async () => {
+    if (!isActive) await start();
+    setView("learn");
+  }, [isActive, start]);
+
+  const exitLearn = useCallback(() => setView("home"), []);
+
   // Debounce detected letters into the accumulated output text.
-  const lastSignRef = useRef<string>("—");
+  const lastSignRef = useRef<string>("-");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const sign = liveResult.sign;
-    if (sign === "—" || sign === lastSignRef.current) return;
+    if (sign === "-" || sign === lastSignRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       lastSignRef.current = sign;
@@ -43,7 +54,7 @@ export default function App() {
 
   const handleClear = useCallback(() => {
     setOutputText("");
-    lastSignRef.current = "—";
+    lastSignRef.current = "-";
   }, []);
 
   const handleSpeak = useCallback(async () => {
@@ -68,6 +79,20 @@ export default function App() {
       setSpeaking(false);
     }
   }, [outputText, speaking]);
+
+  if (view === "learn") {
+    return (
+      <div className="app">
+        <LearnScreen
+          videoRef={videoRef}
+          status={status}
+          error={error}
+          detection={liveResult}
+          onExit={exitLearn}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -100,7 +125,7 @@ export default function App() {
             <button className="btn-primary" onClick={isActive ? stop : start}>
               {isActive ? "Stop camera" : "Start camera"}
             </button>
-            <button className="btn-secondary">Learn the signs</button>
+            <button className="btn-secondary" onClick={enterLearn}>Learn the signs</button>
           </div>
         </div>
 
@@ -137,7 +162,7 @@ export default function App() {
                 ) : transcribe.tentative ? (
                   <span className="phrase-tentative">{transcribe.tentative}</span>
                 ) : (
-                  <em className="phrase-placeholder">…</em>
+                  <em className="phrase-placeholder">...</em>
                 )}
               </span>
             </div>

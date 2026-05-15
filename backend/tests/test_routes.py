@@ -63,7 +63,7 @@ def test_detect_landmarks_invalid_payload_returns_empty(client: TestClient) -> N
     with client.websocket_connect("/ws/detect-landmarks") as ws:
         ws.send_json({"not_hands": "garbage"})
         data = ws.receive_json()
-    assert data["sign"] == "—"
+    assert data["sign"] == "-"
     assert data["confidence"] == 0.0
     assert data["hands"] == []
 
@@ -74,7 +74,7 @@ def test_detect_landmarks_no_hands(client: TestClient) -> None:
     with client.websocket_connect("/ws/detect-landmarks") as ws:
         ws.send_json({"hands": []})
         data = ws.receive_json()
-    assert data["sign"] == "—"
+    assert data["sign"] == "-"
     assert data["hands"] == []
 
 

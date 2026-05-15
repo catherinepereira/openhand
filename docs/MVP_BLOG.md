@@ -1,4 +1,4 @@
-# OpenHand — building a sign-language interpreter MVP
+# OpenHand: building a sign-language interpreter MVP
 
 > A real-time sign-language recognition app. Webcam in, detected letters
 > and transcribed phrases out, optional speech synthesis on top. Built
@@ -6,8 +6,8 @@
 
 ## What it does
 
-OpenHand opens your webcam, recognises American Sign Language in two
-modes, and turns it into text — and optionally into spoken audio.
+OpenHand opens your webcam, recognizes American Sign Language in two
+modes, and turns it into text, and optionally into spoken audio.
 
 **Live letter mode** continuously detects a single ASL letter from the
 camera feed, draws a skeleton overlay on the user's hand for visual
@@ -31,7 +31,7 @@ Initially I built only the live letter mode. It worked, but it had real
 limitations:
 
 - **One signer in training data.** The static-image dataset I used has
-  87,000 photos but all from a single person, so generalisation to
+  87,000 photos but all from a single person, so generalization to
   anyone else's hands was poor.
 - **No motion.** Letters like J and Z are *defined* by hand motion in
   ASL. A model trained on still photos sees arbitrary frozen frames of
@@ -54,33 +54,33 @@ requires the user to deliberately record a clip.
 ## The architecture in one picture
 
 ```
-                                    ┌──────────────────────────────┐
-                                    │  React + Vite frontend       │
-                                    │  (mode toggle, hold-to-record, │
-                                    │   skeleton overlay, TTS)     │
-                                    └──────────────┬───────────────┘
-                                                   │
-                              ┌────────────────────┴────────────────────┐
-                              │                                         │
+                                    +------------------------------+
+                                    |  React + Vite frontend       |
+                                    |  (mode toggle, hold-to-record, |
+                                    |   skeleton overlay, TTS)     |
+                                    +--------------+---------------+
+                                                   |
+                              +--------------------+--------------------+
+                              |                                         |
                   WebSocket /ws/detect                          POST /api/transcribe
                   (1 frame / 100ms)                            (buffered clip of frames)
-                              │                                         │
-                              ▼                                         ▼
-                   ┌──────────────────────┐               ┌───────────────────────┐
-                   │ MediaPipe Hand only  │               │ MediaPipe Hand+Pose+Face │
-                   │ (21 landmarks/frame) │               │ (127 landmarks/frame)  │
-                   └──────────┬───────────┘               └────────────┬──────────┘
-                              │                                        │
-                              ▼                                        ▼
-                   ┌──────────────────────┐               ┌───────────────────────┐
-                   │  Alphabet MLP        │               │  CTC Transformer       │
-                   │  • 250 KB ONNX       │               │  • 116 MB ONNX         │
-                   │  • 62K params        │               │  • 27.5M params        │
-                   │  • 0.02 ms/frame CPU │               │  • 16 ms / 128 frames  │
-                   │  • 26 logits A–Z     │               │  • CTC greedy/beam     │
-                   └──────────┬───────────┘               └────────────┬──────────┘
-                              │                                        │
-                              ▼                                        ▼
+                              |                                         |
+                              v                                         v
+                   +----------------------+               +-----------------------+
+                   | MediaPipe Hand only  |               | MediaPipe Hand+Pose+Face |
+                   | (21 landmarks/frame) |               | (127 landmarks/frame)  |
+                   +----------+-----------+               +------------+----------+
+                              |                                        |
+                              v                                        v
+                   +----------------------+               +-----------------------+
+                   |  Alphabet MLP        |               |  CTC Transformer       |
+                   |  - 250 KB ONNX       |               |  - 116 MB ONNX         |
+                   |  - 62K params        |               |  - 27.5M params        |
+                   |  - 0.02 ms/frame CPU |               |  - 16 ms / 128 frames  |
+                   |  - 26 logits A-Z     |               |  - CTC greedy/beam     |
+                   +----------+-----------+               +------------+----------+
+                              |                                        |
+                              v                                        v
                        letter + conf                                 phrase
 ```
 
@@ -101,7 +101,7 @@ frontend is a single Vite + React app.
 - React 19, TypeScript, Vite 6
 - WebRTC for camera access
 - Canvas API for the live skeleton overlay
-- Native fetch + WebSocket — no client libraries
+- Native fetch + WebSocket; no client libraries
 
 **Training (separate repo):**
 - PyTorch 2.x with AMP
@@ -117,14 +117,14 @@ step at deploy time.
 ## Numbers
 
 **Alphabet model (live letter path)**
-- Trained on Kaggle ASL Alphabet, 87K images → 62,819 after MediaPipe
+- Trained on Kaggle ASL Alphabet, 87K images -> 62,819 after MediaPipe
   filtering for "hand detected"
 - 4-layer MLP, 62K params
 - 98.95% test accuracy on the held-out split (same signer)
 - 0.019 ms inference per frame on CPU
 
 **CTC model (phrase transcribe path)**
-- Trained on Kaggle ASL Fingerspelling, 67,208 phrases × ~150 frames each
+- Trained on Kaggle ASL Fingerspelling, 67,208 phrases x ~150 frames each
 - 12-layer Transformer encoder + CTC head, 27.5M params
 - Val character error rate 0.249 on 5 held-out signers
 - 16 ms inference per 128-frame clip on CPU
@@ -141,8 +141,8 @@ guessed beforehand were "infrastructure" or "setup" work.
 **1. Getting the live mode shipped first, even with a worse model.**
 The first working version used an MLP on a single-signer alphabet
 dataset. The model itself wasn't great in production conditions, but
-having the end-to-end pipeline working — webcam → MediaPipe → ONNX →
-WebSocket → frontend → debounce → output bar — exposed every other
+having the end-to-end pipeline working (webcam -> MediaPipe -> ONNX ->
+WebSocket -> frontend -> debounce -> output bar) exposed every other
 problem clearly. By the time the CTC model was ready, the integration
 was a known quantity.
 
@@ -152,15 +152,15 @@ class loaded shards lazily under a shuffled DataLoader, which thrashed
 through the same files dozens of times per step. Training was running
 at 57 minutes per epoch. Pre-extracting each sequence to a small `.npz`
 once took 10 minutes and produced 11 GB on disk. Training dropped to
-17 seconds per epoch — about 200× faster. The boring fix dominated
+17 seconds per epoch, about 200x faster. The boring fix dominated
 everything else.
 
 **3. Anti-blank-collapse for CTC.**
 CTC training has a well-known failure mode where the model learns to
 predict "blank" on every frame as a local minimum, and never escapes.
-My first CTC run produced a CER of 0.94 — essentially zero output —
+My first CTC run produced a CER of 0.94 (essentially zero output)
 after a full 30 epochs. Three fixes worked: a linear LR warmup, a
-secondary KL-divergence-to-uniform regularisation term, and cosine LR
+secondary KL-divergence-to-uniform regularization term, and cosine LR
 decay. Together they turned a non-functional model into one with
 CER 0.27 in fewer epochs than the failed attempt.
 
@@ -180,17 +180,17 @@ backend has a setup script that fetches it.
 **The all-in-one `HolisticLandmarker` crashed the backend.** On Windows
 + MediaPipe 0.10.21, when an internal sub-task produces an empty packet,
 the next stage triggers a fatal C++ assertion that takes down the whole
-Python process — no traceback, just a dead process. I replaced it with
+Python process; no traceback, just a dead process. I replaced it with
 three separate Tasks detectors (Hand, Pose, Face) running in series.
 Slower per frame but stable.
 
-**The PyTorch → ONNX export was a maze.** The legacy tracer baked the
+**The PyTorch to ONNX export was a maze.** The legacy tracer baked the
 dummy time dimension into MultiheadAttention's internal reshape ops.
 The new dynamo-based exporter handled that but couldn't convert
 BatchNorm in eval mode. Fix: fuse BN into the preceding Conv1d weights
 before export. Then I discovered the dynamo exporter prints a unicode
 checkmark on success which crashed Windows' cp1252 console. Then I
-discovered the dynamo exporter needs batch ≥ 2 at runtime to preserve
+discovered the dynamo exporter needs batch >= 2 at runtime to preserve
 batch as a dynamic axis, so the backend pads inference with a fully-
 masked dummy second batch item.
 
@@ -201,7 +201,7 @@ been a half-day if encountered cold without the surrounding context.
 
 To be clear about scope:
 
-- **Not a complete ASL recogniser.** Only fingerspelling. No
+- **Not a complete ASL recognizer.** Only fingerspelling. No
   word-level or grammatical signs.
 - **Not real-time phrase transcription.** The phrase mode is
   hold-to-record, not streaming. Streaming would require solving the
@@ -220,21 +220,21 @@ To be clear about scope:
 
 ```
 openhand/
-├── backend/                  FastAPI app, both ONNX models, MediaPipe
-│   ├── api/routes.py             /ws/detect, /api/transcribe, /api/tts
-│   ├── services/                 detectors, classifiers, frame decode
-│   └── models/artifacts/         ONNX + MediaPipe .task files
-├── frontend/                 React + Vite single-page app
-│   └── src/
-│       ├── hooks/                useWebcam, useSignDetection, useTranscribe
-│       └── components/           WebcamFeed with overlay, etc.
-├── docs/
-│   ├── MVP_BLOG.md               this file
-│   ├── CTC_BLOG.md               training the sequence model
-│   ├── PROGRESS.md               chronological project journal
-│   ├── STATE.md                  current technical state
-│   └── CODE_REVIEW.md            review of dead code & efficiency
-└── README.md                 how to run locally
+|-- backend/                  FastAPI app, both ONNX models, MediaPipe
+|   |-- api/routes.py             /ws/detect, /api/transcribe, /api/tts
+|   |-- services/                 detectors, classifiers, frame decode
+|   +-- models/artifacts/         ONNX + MediaPipe .task files
+|-- frontend/                 React + Vite single-page app
+|   +-- src/
+|       |-- hooks/                useWebcam, useSignDetection, useTranscribe
+|       +-- components/           WebcamFeed with overlay, etc.
+|-- docs/
+|   |-- MVP_BLOG.md               this file
+|   |-- CTC_BLOG.md               training the sequence model
+|   |-- PROGRESS.md               chronological project journal
+|   |-- STATE.md                  current technical state
+|   +-- CODE_REVIEW.md            review of dead code & efficiency
++-- README.md                 how to run locally
 ```
 
 The training repo (`openhand-model/`) lives separately and is only
@@ -259,7 +259,7 @@ cd openhand
 Then open `http://localhost:5273` in a browser, allow webcam access,
 and pick a mode. The live letter mode works immediately. The phrase
 transcribe mode needs the 116 MB CTC ONNX manually copied from the
-training repo (see README) — the first run gives you a clear error
+training repo (see README); the first run gives you a clear error
 message if it's missing.
 
 ## Where it goes from here
@@ -269,7 +269,7 @@ The most promising next steps, roughly in order of bang-for-the-buck:
 1. **Language model fusion in beam search.** Beam search on its own
    barely helps the CTC model (the softmax outputs are too confident to
    benefit from beam exploration). But beam + character n-gram LM
-   compounds — the LM catches realistic URL/address patterns that the
+   compounds: the LM catches realistic URL/address patterns that the
    model alone has no reason to prefer.
 2. **Mirror augmentation for left-handed signers.** Cheap retrain,
    doubles effective training samples by flipping x-coordinates.

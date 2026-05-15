@@ -32,7 +32,7 @@ const TASK_URLS = {
 // is consistent across the local-Python and in-browser code paths.
 const MIN_CONFIDENCE = 0.3;
 
-/** Bundle of initialised detectors, lifetime owned by the caller. */
+/** Bundle of initialized detectors; lifetime owned by the caller. */
 export interface MediaPipeDetectors {
   hand: HandLandmarker;
   pose: PoseLandmarker;
@@ -116,7 +116,7 @@ export interface FrameDetection {
 // resolution. Passing the <video> directly to MediaPipe samples it at the
 // element's *display* size (CSS-scaled), which shifts coordinates when
 // that differs from the underlying stream's videoWidth/Height. Going
-// through a canvas at videoWidth × videoHeight matches the backend's
+// through a canvas at videoWidth x videoHeight matches the backend's
 // JPEG-decode path pixel-for-pixel.
 const _sampleCanvas: HTMLCanvasElement =
   typeof document !== "undefined" ? document.createElement("canvas") : (null as never);

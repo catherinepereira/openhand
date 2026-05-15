@@ -97,7 +97,7 @@ export const GROUP_OFFSETS: Record<LandmarkGroup, number> = (() => {
 export const FRAME_LANDMARKS: number =
   GROUP_SIZES.face + GROUP_SIZES.pose + GROUP_SIZES.leftHand + GROUP_SIZES.rightHand;
 
-/** Total floats per frame: 3 (xyz) × FRAME_LANDMARKS = 381. */
+/** Total floats per frame: 3 (xyz) * FRAME_LANDMARKS = 381. */
 export const FRAME_FEATURES: number = FRAME_LANDMARKS * 3;
 
 /** A single MediaPipe landmark in normalized (0..1) coordinates. */
@@ -116,8 +116,8 @@ export interface NormalizedLandmark {
  * - {@link pose}: the full 33-element pose array
  * - {@link leftHand}, {@link rightHand}: each a 21-element hand array
  *
- * The hand split into left/right is the caller's responsibility — see
- * `lib/mediapipe.ts` for how we use MediaPipe's handedness output to
+ * The hand split into left/right is the caller's responsibility; see
+ * lib/mediapipe.ts for how we use MediaPipe's handedness output to
  * assign them.
  */
 export interface RawFrameLandmarks {

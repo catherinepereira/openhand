@@ -1,9 +1,10 @@
 import asyncio
 import json
 import time
+from pathlib import Path
 
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
 from ..models.schemas import (
@@ -41,7 +42,7 @@ async def detect_landmarks_ws(websocket: WebSocket):
     and returns a DetectionResult.
     """
     await websocket.accept()
-    empty = DetectionResult(sign="—", confidence=0.0, hands=[]).model_dump_json()
+    empty = DetectionResult(sign="-", confidence=0.0, hands=[]).model_dump_json()
     try:
         while True:
             payload = await websocket.receive_json()
@@ -140,6 +141,40 @@ async def tts_endpoint(req: TTSRequest):
     if audio is None:
         return {"error": "ElevenLabs API key not configured or request failed"}
     return Response(content=audio, media_type="audio/mpeg")
+
+
+_REFERENCE_PATH = (
+    Path(__file__).resolve().parent.parent / "models" / "artifacts" / "reference_landmarks.json"
+)
+_reference_cache: dict | None = None
+
+
+@router.get("/api/reference-landmarks")
+async def reference_landmarks():
+    """Return the per-letter mean landmark vectors used by the Learn screen.
+
+    Payload shape:
+      {
+        "format": str,
+        "n_features": 63,
+        "letters": { "A": [x0, y0, z0, ..., x20, y20, z20], ... },
+        "sample_counts": { "A": int, ... }
+      }
+    """
+    global _reference_cache
+    if _reference_cache is None:
+        if not _REFERENCE_PATH.exists():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"reference_landmarks.json not found at {_REFERENCE_PATH}. "
+                    "Generate it from openhand-model via "
+                    "scripts/build_reference_landmarks.py."
+                ),
+            )
+        with open(_REFERENCE_PATH) as f:
+            _reference_cache = json.load(f)
+    return _reference_cache
 
 
 @router.get("/api/health")

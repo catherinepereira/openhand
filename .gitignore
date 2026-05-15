@@ -12,21 +12,21 @@ backend/**/__pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Environment files — secrets (ELEVENLABS_API_KEY etc.)
+# Environment files (secrets like ELEVENLABS_API_KEY)
 .env
 .env.local
 .env.*.local
 backend/.env
 frontend/.env
 
-# Model artifacts — split policy:
-#   - Alphabet MLP (`asl_classifier.onnx` ~250 KB, `model_meta.json`) IS
-#     checked in — tiny, needed for the live-letter path.
-#   - CTC transformer (`asl_ctc.onnx` ~116 MB, `asl_ctc_meta.json`) is
-#     gitignored — too large for GitHub. Produced by openhand-model and
+# Model artifacts split policy:
+#   - Alphabet MLP (asl_classifier.onnx, ~250KB, plus model_meta.json) is
+#     checked in; tiny, needed for the live-letter path.
+#   - CTC transformer (asl_ctc.onnx, ~116MB, plus asl_ctc_meta.json) is
+#     gitignored; too large for GitHub. Produced by openhand-model and
 #     copied here manually.
-#   - MediaPipe `.task` files are gitignored — fetched by
-#     `backend/scripts/download_models.py` on setup.
+#   - MediaPipe .task files are gitignored; fetched by the frontend
+#     download script after npm install.
 backend/models/artifacts/asl_ctc.onnx
 backend/models/artifacts/asl_ctc_meta.json
 backend/models/artifacts/*.task

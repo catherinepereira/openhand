@@ -74,14 +74,14 @@ class SignClassifier:
         field echoes every detected hand so the frontend can render overlays.
         """
         if not hands:
-            return DetectionResult(sign="—", confidence=0.0, hands=[])
+            return DetectionResult(sign="-", confidence=0.0, hands=[])
 
         target: DetectedHand | None = next(
             (h for h in hands if h.handedness == "Right" and len(h.landmarks) == 21),
             None,
         )
         if target is None:
-            return DetectionResult(sign="—", confidence=0.0, hands=hands)
+            return DetectionResult(sign="-", confidence=0.0, hands=hands)
 
         vec = np.array([[lm.x, lm.y, lm.z] for lm in target.landmarks], dtype=np.float32).reshape(63)
         vec = _normalize(vec)
@@ -90,6 +90,6 @@ class SignClassifier:
         probs = _softmax(logits)
         idx = int(probs.argmax())
         confidence = float(probs[idx])
-        sign = self.label_map[str(idx)] if confidence >= MIN_CONFIDENCE else "—"
+        sign = self.label_map[str(idx)] if confidence >= MIN_CONFIDENCE else "-"
 
         return DetectionResult(sign=sign, confidence=confidence, hands=hands)

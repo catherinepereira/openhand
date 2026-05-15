@@ -16,9 +16,9 @@ if (-not (Test-Path "$PSScriptRoot\backend\venv")) {
 & "$PSScriptRoot\backend\venv\Scripts\Activate.ps1"
 pip install -q -r "$PSScriptRoot\backend\requirements.txt"
 
-# Warn (but don't fail) if the CTC ONNX is missing — the live-letter
-# WebSocket still works without it, but /api/transcribe-landmarks will
-# 500 on the first call.
+# Warn (but don't fail) if the CTC ONNX is missing. The live-letter
+# WebSocket still works without it, but the transcribe-stream endpoint
+# will close with an error on the first call.
 $ctc = "$PSScriptRoot\backend\models\artifacts\asl_ctc.onnx"
 if (-not (Test-Path $ctc)) {
     Write-Warning "CTC model not found at $ctc"

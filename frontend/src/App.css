@@ -1,4 +1,4 @@
-/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
+/* Reset & base */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -27,14 +27,14 @@ body {
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; }
 
-/* ─── App Layout ────────────────────────────────────────────────────────────── */
+/* App layout */
 .app {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-/* ─── Nav ───────────────────────────────────────────────────────────────────── */
+/* Nav */
 .nav {
   display: flex;
   align-items: center;
@@ -75,7 +75,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .btn-launch:hover { background: var(--surface); }
 
-/* ─── Hero ──────────────────────────────────────────────────────────────────── */
+/* Hero */
 .hero {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -150,7 +150,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .btn-secondary:hover { background: var(--surface); }
 
-/* ─── Hero Right (Webcam side) ──────────────────────────────────────────────── */
+/* Hero right (webcam side) */
 .hero-right {
   display: flex;
   flex-direction: column;
@@ -161,7 +161,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   background: var(--bg);
 }
 
-/* ─── Webcam ────────────────────────────────────────────────────────────────── */
+/* Webcam */
 .webcam-wrap {
   display: flex;
   flex-direction: column;
@@ -172,7 +172,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .webcam-frame {
   position: relative;
-  /* Roughly a third of the viewport — 4:3 aspect ratio rectangle */
+  /* Roughly a third of the viewport, 4:3 aspect ratio */
   width: min(560px, 90%);
   aspect-ratio: 4 / 3;
   border-radius: 24px;
@@ -198,11 +198,9 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   inset: 0;
   width: 100%;
   height: 100%;
-  /* `fill` not `cover`: the displayed video stretches exactly to the
-     box, so its display rect matches the canvas overlay's display rect
-     pixel-perfectly. Any aspect drift between the 4:3 source and the
-     near-4:3 box is absorbed as a fractional stretch instead of as a
-     crop, keeping coordinates aligned with the canvas. */
+  /* fill, not cover: the video stretches exactly to the box so its rect
+     matches the overlay canvas pixel-for-pixel; any aspect drift is
+     absorbed as a fractional stretch rather than a crop. */
   object-fit: fill;
   opacity: 0;
   transition: opacity 0.3s;
@@ -218,7 +216,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   pointer-events: none;
 }
 
-/* ─── "Show skeleton" toggle ───────────────────────────────────────────── */
+/* Show-skeleton toggle */
 .skeleton-toggle {
   display: inline-flex;
   align-items: center;
@@ -230,7 +228,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .skeleton-toggle input { cursor: pointer; }
 
-/* ─── Phrase transcription display ─────────────────────────────────────── */
+/* Phrase transcription display */
 .phrase-display {
   display: flex;
   flex-direction: column;
@@ -289,7 +287,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .status-dot.requesting { background: #f59e0b; }
 .status-dot.error { background: #ef4444; }
 
-/* ─── Sign display cards ────────────────────────────────────────────────────── */
+/* Sign display cards */
 .sign-display-row {
   display: flex;
   gap: 0.75rem;
@@ -322,7 +320,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text);
 }
 
-/* ─── Output bar ────────────────────────────────────────────────────────────── */
+/* Output bar */
 .output-bar {
   padding: 1rem 2.5rem;
   border-bottom: 1px solid var(--border);
@@ -378,7 +376,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .muted { color: var(--text-muted); }
 
-/* ─── Footer info strip ─────────────────────────────────────────────────────── */
+/* Footer info strip */
 .info-strip {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -408,7 +406,146 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text);
 }
 
-/* ─── Responsive ────────────────────────────────────────────────────────────── */
+/* Learn screen */
+.learn-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.25rem 2.5rem 2.5rem;
+  gap: 1.5rem;
+}
+
+.learn-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.learn-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.letter-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 0.4rem;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.letter-tile {
+  aspect-ratio: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+}
+.letter-tile:hover:not(:disabled):not(.selected) { background: var(--surface); }
+.letter-tile:active:not(:disabled) { transform: scale(0.96); }
+.letter-tile.selected {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+}
+.letter-tile.disabled,
+.letter-tile:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.learn-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  flex: 1;
+  min-height: 460px;
+}
+
+.learn-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+
+.learn-panel-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.learn-3d-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 360px;
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.learn-loading,
+.learn-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 1rem;
+  text-align: center;
+}
+.learn-error { color: #b14242; }
+
+.grade-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+
+.grade-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.grade-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.grade-detail {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .learn-main { grid-template-columns: 1fr; }
+  .letter-grid { grid-template-columns: repeat(7, 1fr); }
+}
+
 @media (max-width: 700px) {
   .hero { grid-template-columns: 1fr; }
   .hero-left { border-right: none; border-bottom: 1px solid var(--border); padding: 2.5rem 1.5rem; }
@@ -417,4 +554,5 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   .info-block { border-right: none; border-bottom: 1px solid var(--border); }
   .nav { padding: 0 1.25rem; }
   .nav-links { display: none; }
+  .learn-screen { padding: 1rem 1.25rem 2rem; }
 }
