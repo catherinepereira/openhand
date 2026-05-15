@@ -2,81 +2,42 @@
 
 Point a webcam at your hand, get text back. OpenHand recognizes American
 Sign Language fingerspelling in the browser and pipes it through to text
-(and, if you want, speech).
+and, if you want, speech.
 
-It does two things:
+There are two paths in the app:
 
-1. **Per-frame letter detection.** Hold up a static A-Z handshape; you get
-   one letter back at a time, debounced into an output bar. Uses a small
-   MLP (~62K params) trained on the Kaggle ASL Alphabet dataset.
-2. **Streaming phrase transcription.** Sign a whole word or phrase
-   naturally; the rolling buffer of the last ~3 seconds is decoded by a
-   CTC transformer every 750ms and committed when you pause. Trained on
-   the Kaggle ASL Fingerspelling competition data.
+1. **Per-frame letter detection.** Hold up an A-Z handshape, get one
+   letter back at a time, debounced into a sliding-window output bar.
+   Backed by a small MLP (~62K params) trained on the Kaggle ASL
+   Alphabet dataset.
+2. **Streaming phrase transcription.** Sign a full word or phrase; a
+   rolling buffer of the last ~3 seconds is decoded by a CTC transformer
+   every 750ms and committed when you pause. Trained on the Kaggle ASL
+   Fingerspelling competition data.
 
-MediaPipe runs in the browser to extract landmarks; the trained ONNX
-models run server-side via `onnxruntime`. There is no GPU in the runtime
-path. Inference latency for the alphabet model is well under a
-millisecond on CPU.
+The CTC path is wired end to end but the phrase display is hidden in the
+UI right now; the focus is on getting per-letter recognition reliable
+first. The Learn screen uses the CTC path for J and Z (motion letters)
+behind the scenes.
 
-## Repo layout
+MediaPipe runs in the browser to extract landmarks. The trained ONNX
+models run server-side via `onnxruntime`. No GPU in the runtime path.
+Alphabet inference is ~0.02ms per frame on CPU.
 
-```
-openhand/
-  backend/                 FastAPI, MediaPipe-less (browser does that part)
-    main.py
-    api/routes.py          WebSocket + HTTP routes
-    services/
-      classifier.py        Alphabet MLP (ONNX)
-      ctc_classifier.py    CTC transformer + beam search (ONNX)
-      ctc_landmarks.py     Feature packing + normalization (mirrors training)
-      tts.py               ElevenLabs (optional)
-    models/
-      schemas.py           Pydantic request/response types
-      artifacts/           Model files live here at runtime
-    tests/                 pytest
-    requirements.txt
-    requirements-dev.txt
-    pyproject.toml
-    .env.example
-  frontend/                React 19 + Vite + TypeScript
-    src/
-      App.tsx              Top-level layout + sign debounce
-      components/          Webcam frame, sign cards, output bar
-      hooks/
-        useWebcam.ts         getUserMedia lifecycle
-        useMediaPipe.ts      Shared per-frame detector loop
-        useSignDetection.ts  Alphabet WebSocket client
-        useStreamingTranscribe.ts  CTC WebSocket client
-      lib/
-        landmarks.ts       127-landmark packing + normalization (mirrors backend)
-        mediapipe.ts       MediaPipe Tasks wrappers
-    scripts/
-      download_mediapipe_models.mjs  Pulls the .task files post-install
-    public/
-      models/              .task files land here (gitignored)
-    vite.config.ts
-    tsconfig.json
-    .env.example
-  start-backend.ps1        Convenience launcher (Windows)
-  start-frontend.ps1
-```
-
-**This repo is the app shell. None of the model files are checked in.**
-You train them in the sibling repo
-[openhand-model](../openhand-model) and copy the outputs into
-`backend/models/artifacts/`. See "Setting up the models" below.
+None of the trained model files are checked in. Train them in the
+sibling repo [openhand-model](../openhand-model) and copy the outputs
+into `backend/models/artifacts/`. See "Setting up the models" below.
 
 ## Setup
 
-You'll need:
+Requirements:
 
-- Python 3.10 or newer
-- Node 22.12+ (Vite 6 will warn on 22.11 but still run)
+- Python 3.10+
+- Node 22.12+ (Vite 6 warns on 22.11 but still runs)
 - A webcam
 
 ```powershell
-git clone https://github.com/<you>/openhand
+git clone https://github.com/catherinepereira/openhand
 cd openhand
 
 # Backend
@@ -87,47 +48,14 @@ pip install -r backend/requirements.txt
 # Frontend
 cd frontend
 npm install
-node scripts/download_mediapipe_models.mjs   # pulls ~17MB of .task files
+node scripts/download_mediapipe_models.mjs   # ~17 MB of .task files
 cd ..
 ```
 
-On macOS / Linux the venv activation is `source backend/venv/bin/activate`
-and the rest is the same.
-
-### Setting up the models
-
-The backend won't start until at least the alphabet artifacts are present.
-Everything below lives under `backend/models/artifacts/` (gitignored).
-
-| File | Size | Required? | Where it comes from |
-|------|------|-----------|---------------------|
-| `asl_classifier.onnx` | ~250 KB | yes | `openhand-model/scripts/train.py` + `export_onnx.py` |
-| `model_meta.json` | ~1 KB | yes | written by `train.py` |
-| `reference_landmarks.json` | ~35 KB | yes (Learn screen) | `openhand-model/scripts/build_reference_landmarks.py` |
-| `asl_ctc.onnx` | ~116 MB | optional (phrase transcribe) | `openhand-model/scripts/train_ctc.py` + `export_ctc_onnx.py` |
-| `asl_ctc_meta.json` | ~15 KB | optional | written by `train_ctc.py` |
-
-Once the model repo has run its training scripts (see its README), copy
-the artifacts over:
-
-```powershell
-# Alphabet path + Learn screen
-copy ..\openhand-model\exports\asl_classifier.onnx       backend\models\artifacts\
-copy ..\openhand-model\exports\model_meta.json           backend\models\artifacts\
-copy ..\openhand-model\exports\reference_landmarks.json  backend\models\artifacts\
-
-# Phrase transcription (optional)
-copy ..\openhand-model\exports\ctc\asl_ctc.onnx          backend\models\artifacts\
-copy ..\openhand-model\exports\ctc\model_meta.json       backend\models\artifacts\asl_ctc_meta.json
-```
-
-If the CTC files are missing, the phrase display stays at `...` and the
-WebSocket closes with an error; the alphabet path still works. If the
-alphabet files are missing, the backend will fail to start.
+On macOS / Linux the venv activation is `source backend/venv/bin/activate`;
+everything else is the same.
 
 ## Running
-
-Two terminals:
 
 ```powershell
 # Terminal 1
@@ -139,7 +67,7 @@ Two terminals:
 # vite on http://localhost:5273
 ```
 
-Or, without the convenience scripts:
+Without the launchers:
 
 ```powershell
 # Backend
@@ -151,92 +79,53 @@ cd frontend
 npm run dev
 ```
 
-Open http://localhost:5273, allow webcam access, and start signing.
-
 ### Configuration
 
 | File | What it does |
-|------|-------------|
-| `backend/.env` | Optional. Only used for the ElevenLabs API key (text-to-speech). |
-| `frontend/.env` | Optional. `VITE_TTS_ENABLED=true` shows the speak button; `VITE_API_BASE=...` lets you point the frontend at a non-default backend origin. |
-| `backend/pyproject.toml` | pytest config; nothing user-tunable. |
-| `frontend/vite.config.ts` | Standard Vite + React plugin. Dev server port 5273. |
-| `frontend/tsconfig.json` | TypeScript strict mode. |
-
-Copy `*.env.example` to `*.env` to start; both example files document the
-keys.
-
-## Testing
-
-```powershell
-# Backend
-backend\venv\Scripts\Activate.ps1
-pip install -r backend/requirements-dev.txt
-pytest backend/tests
-
-# Frontend
-cd frontend
-npm test
-```
-
-Tests that depend on the CTC ONNX (116MB, not checked in) skip
-automatically if the file isn't present.
+|------|--------------|
+| `backend/.env` | Optional. Holds `ELEVENLABS_API_KEY` for TTS. |
+| `frontend/.env` | Optional. `VITE_TTS_ENABLED=true` shows the speak button. `VITE_API_BASE=...` overrides the backend origin. |
 
 ## How it fits together
 
 1. The frontend captures a frame from the webcam every 100ms.
-2. MediaPipe Tasks runs in-browser on each frame to pull out 21 hand
-   landmarks (alphabet path) plus the 127-landmark Holistic set (phrase
+2. MediaPipe Tasks runs in-browser on each frame to produce 21 hand
+   landmarks (alphabet path) and the 127-landmark Holistic set (CTC
    path).
 3. For the alphabet path, the 63 floats for the dominant hand go over a
    WebSocket to the backend, which runs the MLP and returns a letter +
-   confidence. Below 0.5 confidence we return `-` and don't accumulate.
-4. For the phrase path, the 381 floats per frame are buffered into a
-   rolling ~3-second window. Every 750ms the frontend sends the buffer
-   to a different WebSocket, the backend runs the CTC transformer + beam
-   search, and the decoded string comes back. When you pause (the wrist
-   stops moving for ~600ms), the latest decode is committed.
-5. The "speak" button calls ElevenLabs over HTTP and plays the returned
-   MP3 through `<audio>`.
+   confidence. Below 0.5 confidence the backend returns `-` and the
+   frontend doesn't accumulate.
+4. For the CTC path (currently used only on the Learn screen for J/Z),
+   the 381 floats per frame are buffered into a rolling ~2-second
+   window. Every 600ms the frontend sends the buffer to a separate
+   WebSocket, the backend runs the CTC transformer + beam search, and
+   the decoded string comes back.
+5. The "speak" button posts the accumulated text to `/api/tts`, gets
+   MP3 audio from ElevenLabs, plays it through `<audio>`.
 
-The frontend also draws a hand skeleton overlay on the video feed, fed
-straight from the MediaPipe output so it stays in sync with the camera
-regardless of backend latency.
-
-## The model
-
-Both models are trained in [openhand-model](../openhand-model). Short
-version:
-
-| | Alphabet | CTC phrase |
-|-|----------|------------|
-| Architecture | 3-layer MLP, BatchNorm + Dropout | Conv1D stem + 6-layer transformer encoder + CTC head |
-| Input | 21 landmarks * (x, y, z) = 63 floats | 127 landmarks * 3 = 381 floats per frame, variable length |
-| Output | 26 logits (A-Z) | log-probs over 59 chars + blank |
-| Params | ~62K | ~5.5M |
-| CPU inference | 0.019ms / frame | ~50-150ms / decode (sequence-length dependent) |
-| Dataset | Kaggle ASL Alphabet (87K images, one signer) | Kaggle ASL Fingerspelling (~67K phrases, 100+ signers) |
-| Validation | 98.95% top-1 on held-out 5% | CER 0.235 on held-out signers (beam search) |
-
-The training story (data pipeline rewrites, dealing with NaN landmark
-sentinels, why CTC, etc.) is in `openhand-model/README.md`.
+The hand skeleton overlay on the video is rendered straight from
+MediaPipe output, so it stays in sync with the camera regardless of
+backend latency.
 
 ## Known limitations
 
 - The alphabet model is trained on a single signer. Real-world accuracy
-  on unseen hands and lighting is meaningfully lower than the 98.95%
-  test number. Cross-signer fine-tuning would help.
+  on unseen hands and lighting is lower than the 98.95% test number;
+  cross-signer fine-tuning would help.
 - J and Z need motion to disambiguate from I and D. The static-frame
-  alphabet model gets these wrong some of the time; the CTC model
-  handles them fine because it sees a window of frames.
+  MLP gets them wrong some of the time; the CTC model handles them
+  fine because it sees a window of frames.
+- The MLP is rotation-sensitive (it sees raw camera-frame landmarks),
+  so signs whose handshape depends on orientation (P, G, H) may need
+  exaggerated angles to register.
 - MediaPipe's handedness label is camera-POV, not user-POV. A
   right-handed signer with a non-mirrored feed has their right hand
   labeled "Left". The classifier picks "Right" (camera-POV) as the
-  dominant hand by convention, so left-handed signers may work better
-  out of the box than right-handed ones.
-- No support for multiple simultaneous hands. `numHands` is 2 in
-  MediaPipe but only one feeds the classifier.
+  dominant hand by convention.
+- Only right hand is supported. `numHands` is 2 in MediaPipe but only one (right hand) feeds
+  the classifier.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
