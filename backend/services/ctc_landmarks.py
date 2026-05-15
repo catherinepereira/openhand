@@ -1,17 +1,16 @@
 """
 Landmark selection for the CTC fingerspelling model.
 
-**MUST stay in sync with** ``openhand-model/model/landmarks.py``. This is a
-deliberate copy (the backend doesn't import from the training repo). The
-index lists, group order, and ``normalize_sequence`` body must match
-exactly — drift here means the deployed CTC ONNX silently sees inputs in
-the wrong format and produces garbage.
+MUST stay in sync with openhand-model/model/landmarks.py. This is a deliberate
+copy (the backend doesn't import from the training repo). The index lists,
+group order, and normalize_sequence body must match exactly; drift means the
+deployed CTC ONNX silently sees inputs in the wrong format and produces garbage.
 
 The CTC ONNX consumes (B, T, N_FEATURES) tensors where each frame's floats
 are laid out as:
-  40 lips × 3 + 16 left-eye × 3 + 16 right-eye × 3 + 4 nose × 3
-  + 9 pose × 3 + 21 left-hand × 3 + 21 right-hand × 3
-  = 127 landmarks × 3 = 381 floats
+  40 lips * 3 + 16 left-eye * 3 + 16 right-eye * 3 + 4 nose * 3
+  + 9 pose * 3 + 21 left-hand * 3 + 21 right-hand * 3
+  = 127 landmarks * 3 = 381 floats
 """
 
 from __future__ import annotations
@@ -32,10 +31,7 @@ NOSE_IDX = [1, 2, 98, 327]
 POSE_IDX = [0, 11, 12, 13, 14, 15, 16, 23, 24]
 HAND_IDX = list(range(21))
 
-# Group offsets in the feature vector (in units of *features*, i.e. ×3 of
-# the landmark indices). The right-wrist anchor lives at offset
-# GROUP_OFFSETS["right_hand"] (this is what training's normalize_sequence
-# uses).
+# Group offsets in the feature vector, in *feature* units (3x landmark count).
 N_FACE_LM = len(LIPS_IDX) + len(LEFT_EYE_IDX) + len(RIGHT_EYE_IDX) + len(NOSE_IDX)
 N_POSE_LM = len(POSE_IDX)
 N_HAND_LM = len(HAND_IDX)
@@ -58,12 +54,12 @@ def build_frame_features(
     right_hand_lms: list | None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Pack one frame's MediaPipe Holistic landmarks into a (N_FEATURES,)
-    feature vector + (N_LANDMARKS,) missing mask.
+    feature vector and (N_LANDMARKS,) missing mask.
 
-    Each input is either ``None`` (entire group missing) or a list of mediapipe
+    Each input is either None (entire group missing) or a list of mediapipe
     NormalizedLandmark with .x .y .z attributes covering ALL landmarks for
-    that group (the full 468 face landmarks, 33 pose, 21 hand — we slice the
-    subset of interest by index).
+    that group (full 468 face, 33 pose, 21 hand); we slice the subset of
+    interest by index.
     """
     vec = np.zeros(N_FEATURES, dtype=np.float32)
     missing = np.ones(N_LANDMARKS, dtype=bool)
@@ -97,8 +93,8 @@ def build_frame_features(
 def normalize_sequence(arr: np.ndarray, missing: np.ndarray) -> np.ndarray:
     """Match openhand-model/model/landmarks.py::normalize_sequence.
 
-    arr:     (T, N_FEATURES) float32  — already NaN-filled with 0
-    missing: (T, N_LANDMARKS) bool    — True where landmark was absent
+    arr:     (T, N_FEATURES) float32, already NaN-filled with 0.
+    missing: (T, N_LANDMARKS) bool, True where landmark was absent.
     """
     arr = np.nan_to_num(arr, nan=0.0).astype(np.float32, copy=True)
     pts = arr.reshape(arr.shape[0], -1, 3)  # (T, N_LANDMARKS, 3)

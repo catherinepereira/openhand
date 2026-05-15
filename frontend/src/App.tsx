@@ -3,50 +3,43 @@ import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
 import { useWebcam } from "./hooks/useWebcam";
+import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
-import { useTranscribe } from "./hooks/useTranscribe";
+import { useStreamingTranscribe } from "./hooks/useStreamingTranscribe";
 import { HTTP_ENDPOINTS } from "./config";
 import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
 
-type Mode = "live" | "transcribe";
-
 export default function App() {
   const { videoRef, status, error, start, stop } = useWebcam();
   const isActive = status === "active";
-  const [mode, setMode] = useState<Mode>("live");
-  // Only run the live per-frame WebSocket detection when in live mode AND
-  // camera is active. Avoids spamming the backend in transcribe mode.
-  const liveActive = isActive && mode === "live";
-  const { result } = useSignDetection(videoRef, liveActive);
-  const transcribe = useTranscribe(videoRef);
+
+  const { detection } = useMediaPipe(videoRef, isActive);
+  const { result: liveResult } = useSignDetection(detection, isActive);
+  const transcribe = useStreamingTranscribe(detection, isActive);
 
   const [outputText, setOutputText] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [ttsEnabled] = useState(!!import.meta.env.VITE_TTS_ENABLED);
+  const [showSkeleton, setShowSkeleton] = useState(true);
 
-  // Debounce detected sign into output text (live mode only)
+  // Debounce detected letters into the accumulated output text.
   const lastSignRef = useRef<string>("—");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => {
-    if (mode !== "live") return;
-    const sign = result.sign;
+    const sign = liveResult.sign;
     if (sign === "—" || sign === lastSignRef.current) return;
-    debounceRef.current && clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       lastSignRef.current = sign;
       setOutputText((prev) => prev + sign);
     }, SIGN_DEBOUNCE_MS);
-  }, [result.sign, mode]);
+  }, [liveResult.sign]);
 
-  const handleTranscribeStop = useCallback(async () => {
-    const r = await transcribe.stop();
-    if (r && r.text) {
-      setOutputText((prev) => (prev ? prev + " " : "") + r.text);
-    }
-  }, [transcribe]);
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   const handleClear = useCallback(() => {
     setOutputText("");
@@ -78,7 +71,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Nav */}
       <header className="nav">
         <div className="nav-logo">OpenHand <span>🤟</span></div>
         <nav className="nav-links">
@@ -94,7 +86,6 @@ export default function App() {
         </button>
       </header>
 
-      {/* Hero */}
       <main className="hero">
         <div className="hero-left">
           <div className="badge">OPEN SOURCE · REAL-TIME</div>
@@ -118,60 +109,42 @@ export default function App() {
             videoRef={videoRef}
             status={status}
             error={error}
-            hands={mode === "live" ? result.hands : []}
+            hands={showSkeleton ? liveResult.hands : []}
           />
 
-          {/* Mode toggle */}
-          <div className="mode-toggle" role="tablist" aria-label="Detection mode">
-            <button
-              role="tab"
-              aria-selected={mode === "live"}
-              className={`mode-tab ${mode === "live" ? "active" : ""}`}
-              onClick={() => setMode("live")}
-              disabled={transcribe.recording || transcribe.busy}
-            >
-              Live letter
-            </button>
-            <button
-              role="tab"
-              aria-selected={mode === "transcribe"}
-              className={`mode-tab ${mode === "transcribe" ? "active" : ""}`}
-              onClick={() => setMode("transcribe")}
-            >
-              Phrase transcribe
-            </button>
-          </div>
+          <label className="skeleton-toggle">
+            <input
+              type="checkbox"
+              checked={showSkeleton}
+              onChange={(e) => setShowSkeleton(e.target.checked)}
+            />
+            Show skeleton
+          </label>
 
-          {mode === "live" ? (
-            <SignDisplay sign={result.sign} confidence={result.confidence} />
-          ) : (
-            <div className="transcribe-controls">
-              <button
-                className={`btn-record ${transcribe.recording ? "recording" : ""}`}
-                disabled={!isActive || transcribe.busy}
-                onMouseDown={transcribe.start}
-                onMouseUp={handleTranscribeStop}
-                onMouseLeave={transcribe.recording ? handleTranscribeStop : undefined}
-                onTouchStart={(e) => { e.preventDefault(); transcribe.start(); }}
-                onTouchEnd={(e) => { e.preventDefault(); handleTranscribeStop(); }}
-              >
-                {transcribe.busy
-                  ? "Transcribing…"
-                  : transcribe.recording
-                  ? "Recording — release to transcribe"
-                  : "Hold to sign a phrase"}
-              </button>
-              {transcribe.lastResult && (
-                <p className="transcribe-meta">
-                  {transcribe.lastResult.frameCount} frames · {Math.round(transcribe.lastResult.elapsedMs)} ms
-                </p>
-              )}
+          <SignDisplay sign={liveResult.sign} confidence={liveResult.confidence} />
+
+          {isActive && (
+            <div className="phrase-display">
+              <span className="phrase-label">PHRASE</span>
+              <span className="phrase-value">
+                {transcribe.text ? (
+                  <>
+                    <span className="phrase-committed">{transcribe.text}</span>
+                    {transcribe.tentative && (
+                      <span className="phrase-tentative"> {transcribe.tentative}</span>
+                    )}
+                  </>
+                ) : transcribe.tentative ? (
+                  <span className="phrase-tentative">{transcribe.tentative}</span>
+                ) : (
+                  <em className="phrase-placeholder">…</em>
+                )}
+              </span>
             </div>
           )}
         </div>
       </main>
 
-      {/* Text output bar — visible when there's output or camera is active */}
       {(isActive || outputText) && (
         <div className="output-bar">
           <TextOutput
@@ -184,7 +157,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer info strip */}
       <footer className="info-strip">
         <div className="info-block">
           <span className="info-label">DETECTION</span>

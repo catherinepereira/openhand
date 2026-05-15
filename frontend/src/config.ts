@@ -9,10 +9,10 @@ const WS_BASE: string = API_BASE.replace(/^http/, "ws");
 
 export const HTTP_ENDPOINTS = {
   tts: `${API_BASE}/api/tts`,
-  transcribe: `${API_BASE}/api/transcribe-landmarks`,
   health: `${API_BASE}/api/health`,
 };
 
 export const WS_ENDPOINTS = {
   detect: `${WS_BASE}/ws/detect-landmarks`,
+  transcribeStream: `${WS_BASE}/ws/transcribe-stream`,
 };

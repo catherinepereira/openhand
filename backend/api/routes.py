@@ -1,16 +1,15 @@
 import asyncio
+import json
 import time
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
 from ..models.schemas import (
     DetectionResult,
     DetectLandmarksRequest,
     TTSRequest,
-    TranscribeLandmarksRequest,
-    TranscribeResponse,
 )
 from ..services.classifier import SignClassifier
 from ..services.ctc_classifier import CTCClassifier
@@ -19,12 +18,10 @@ from ..services.tts import text_to_speech
 
 router = APIRouter()
 
-# Alphabet classifier is small + fast to load; instantiate eagerly so the
-# first WebSocket frame doesn't pay startup cost.
+# Alphabet classifier is small and fast to load; instantiate eagerly.
 classifier = SignClassifier()
 
-# CTC classifier ONNX is 116 MB; lazy-load on first transcribe call so
-# the live-letter flow starts up fast even if nobody uses transcribe.
+# CTC ONNX is 116 MB; lazy-load on first transcribe call.
 _ctc: CTCClassifier | None = None
 
 
@@ -35,15 +32,13 @@ def _get_ctc() -> CTCClassifier:
     return _ctc
 
 
-# ─── live-letter (browser MediaPipe → backend ONNX MLP) ─────────────────
-
 @router.websocket("/ws/detect-landmarks")
 async def detect_landmarks_ws(websocket: WebSocket):
     """Per-frame letter detection from pre-extracted hand landmarks.
 
-    Browser runs MediaPipe locally and sends one ``DetectLandmarksRequest``
-    per frame; the backend runs the alphabet MLP against the "Right" hand
-    (camera POV) and returns a ``DetectionResult``.
+    Browser runs MediaPipe locally and sends one DetectLandmarksRequest per
+    frame; backend runs the alphabet MLP against the camera-POV "Right" hand
+    and returns a DetectionResult.
     """
     await websocket.accept()
     empty = DetectionResult(sign="—", confidence=0.0, hands=[]).model_dump_json()
@@ -61,39 +56,83 @@ async def detect_landmarks_ws(websocket: WebSocket):
         pass
 
 
-# ─── phrase transcription (browser MediaPipe → backend CTC ONNX) ────────
+@router.websocket("/ws/transcribe-stream")
+async def transcribe_stream_ws(websocket: WebSocket):
+    """Streaming CTC transcription.
 
-@router.post("/api/transcribe-landmarks", response_model=TranscribeResponse)
-async def transcribe_landmarks_endpoint(req: TranscribeLandmarksRequest):
-    """Transcribe a fingerspelling clip whose landmarks were extracted by
-    MediaPipe in the browser. The body shape matches the CTC model's
-    input directly — no MediaPipe runs server-side.
+    The browser sends decode messages containing a rolling buffer of landmark
+    frames every ~750ms; the route runs the CTC model on each batch and returns
+    the decoded string.
+
+    Wire format (both directions JSON):
+
+      client -> server:  {
+        "type": "decode",
+        "frame_count": int,
+        "features": float[],  // flat, T * N_FEATURES, row-major
+        "missing":  bool[],   // flat, T * N_LANDMARKS, row-major
+      }
+
+      server -> client:  {"type": "result", "text": str, "elapsed_ms": float}
+                         {"type": "error",  "message": str}
+
+    The model is stateless across messages; each request re-decodes the full
+    provided buffer.
     """
-    T = req.frame_count
-    if T == 0:
-        return TranscribeResponse(text="", frame_count=0, elapsed_ms=0.0)
-    if len(req.features) != T * N_FEATURES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"features length {len(req.features)} != frame_count {T} * {N_FEATURES}",
+    await websocket.accept()
+    try:
+        ctc = _get_ctc()
+    except Exception as exc:
+        await websocket.send_text(
+            json.dumps({"type": "error", "message": f"CTC model load failed: {exc}"})
         )
-    if len(req.missing) != T * N_LANDMARKS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"missing length {len(req.missing)} != frame_count {T} * {N_LANDMARKS}",
-        )
+        await websocket.close()
+        return
 
-    features = np.array(req.features, dtype=np.float32).reshape(T, N_FEATURES)
-    missing = np.array(req.missing, dtype=bool).reshape(T, N_LANDMARKS)
+    try:
+        while True:
+            payload = await websocket.receive_json()
+            if payload.get("type") != "decode":
+                continue
+            try:
+                T = int(payload["frame_count"])
+                features = payload["features"]
+                missing = payload["missing"]
+            except (KeyError, TypeError, ValueError):
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": "bad payload"})
+                )
+                continue
+            if T == 0:
+                await websocket.send_text(json.dumps({"type": "result", "text": "", "elapsed_ms": 0.0}))
+                continue
+            if len(features) != T * N_FEATURES or len(missing) != T * N_LANDMARKS:
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "message": (
+                                f"length mismatch: expected features={T * N_FEATURES} "
+                                f"missing={T * N_LANDMARKS}, got "
+                                f"features={len(features)} missing={len(missing)}"
+                            ),
+                        }
+                    )
+                )
+                continue
 
-    ctc = _get_ctc()
-    t0 = time.perf_counter()
-    text = await asyncio.to_thread(ctc.transcribe, features, missing)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
-    return TranscribeResponse(text=text, frame_count=T, elapsed_ms=elapsed_ms)
+            arr = np.array(features, dtype=np.float32).reshape(T, N_FEATURES)
+            miss = np.array(missing, dtype=bool).reshape(T, N_LANDMARKS)
 
+            t0 = time.perf_counter()
+            text = await asyncio.to_thread(ctc.transcribe, arr, miss)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            await websocket.send_text(
+                json.dumps({"type": "result", "text": text, "elapsed_ms": elapsed_ms})
+            )
+    except WebSocketDisconnect:
+        pass
 
-# ─── misc ────────────────────────────────────────────────────────────────
 
 @router.post("/api/tts")
 async def tts_endpoint(req: TTSRequest):

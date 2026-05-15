@@ -1,12 +1,12 @@
 /**
  * Browser-side MediaPipe Tasks API wrapper.
  *
- * Initialises three detectors (Hand, Pose, Face) once, then exposes
- * per-frame extraction functions that produce typed landmark bundles
- * matching the shape `landmarks.ts` expects.
+ * Initializes three detectors (Hand, Pose, Face) once, then exposes per-frame
+ * extraction functions that produce typed landmark bundles matching the shape
+ * landmarks.ts expects.
  *
- * The three .task files are served by Vite from /models/ (copied at
- * setup time from `openhand/backend/models/artifacts/`).
+ * The three .task files are served by Vite from /models/ (copied at setup
+ * time from openhand/backend/models/artifacts/).
  */
 
 import {
@@ -28,7 +28,7 @@ const TASK_URLS = {
   face: "/models/face_landmarker.task",
 } as const;
 
-// Minimum detection / presence confidences. Match the backend so behaviour
+// Minimum detection / presence confidences. Match the backend so behavior
 // is consistent across the local-Python and in-browser code paths.
 const MIN_CONFIDENCE = 0.3;
 
@@ -135,16 +135,15 @@ function sampleVideoAtNativeRes(video: HTMLVideoElement): HTMLCanvasElement | nu
 }
 
 /**
- * Run all three detectors on the same video frame, package the output
- * into the shape `landmarks.ts` expects.
+ * Run all three detectors on the same video frame and package the output
+ * into the shape landmarks.ts expects.
  *
- * Uses the IMAGE-mode ``detect()`` so each frame is treated independently
- * — matches the backend pipeline (which decodes a JPEG and runs the
- * stateless IMAGE detector) and avoids the video-mode tracker's temporal
- * coordinate drift.
+ * Uses IMAGE-mode detect() so each frame is treated independently; matches
+ * the backend pipeline (stateless IMAGE detector on a decoded JPEG) and
+ * avoids video-mode coordinate drift.
  *
- * ``timestampMs`` is unused in IMAGE mode but kept in the signature so
- * callers don't have to change if we swap modes later.
+ * timestampMs is unused in IMAGE mode but kept in the signature so callers
+ * don't have to change if we swap modes later.
  */
 export function detectFrame(
   detectors: MediaPipeDetectors,
@@ -174,8 +173,6 @@ export function detectFrame(
   };
 }
 
-// ─── internal helpers
-
 /**
  * Run a MediaPipe detect call and swallow any thrown errors. A failing
  * single sub-detector shouldn't crash the whole frame.
@@ -193,15 +190,14 @@ function firstOrNull<T>(arr: readonly T[] | undefined): T | null {
 }
 
 /**
- * Split the (up to 2) detected hands into a left + right pair, using
+ * Split the (up to 2) detected hands into a left + right pair using
  * MediaPipe's handedness classifier.
  *
- * Note this is camera-POV "left/right" — a right-handed user with a
- * non-mirrored feed has their right hand appear on the camera's left
- * side, so MediaPipe labels it "Left." See lib/handedness.ts for the
- * user-POV interpretation.
+ * Note this is camera-POV "left/right": a right-handed user with a
+ * non-mirrored feed has their right hand appear on the camera's left side,
+ * so MediaPipe labels it "Left."
  */
-function splitHands(result: HandLandmarkerResult | null): {
+export function splitHands(result: HandLandmarkerResult | null): {
   leftHand: NormalizedLandmark[] | null;
   rightHand: NormalizedLandmark[] | null;
   leftLabel: MediaPipeHandednessLabel | null;

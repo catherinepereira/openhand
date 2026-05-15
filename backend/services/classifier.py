@@ -1,14 +1,14 @@
 """
 ASL letter classifier backed by an ONNX MLP trained in openhand-model/.
 
-Loads the model once at import time. The classifier consumes the 21 MediaPipe
-hand landmarks already produced by HandDetector, normalises them the same way
-the training pipeline did (wrist at origin, scaled by 95th-percentile |value|),
-and returns the predicted letter + confidence.
+Loads the model once at import time. Consumes the 21 MediaPipe hand landmarks
+produced by the browser detector, normalizes them the same way training did
+(wrist at origin, scaled by 95th-percentile |value|), and returns the
+predicted letter and confidence.
 
-The training pipeline lives in ../../../openhand-model/. To retrain or update
-the model, regenerate exports/asl_classifier.onnx there and copy it (along
-with model_meta.json) into backend/models/artifacts/.
+To retrain or update the model, regenerate exports/asl_classifier.onnx in
+openhand-model/ and copy it (along with model_meta.json) into
+backend/models/artifacts/.
 """
 
 import json
@@ -23,15 +23,12 @@ _ARTIFACTS = Path(__file__).resolve().parent.parent / "models" / "artifacts"
 _MODEL_PATH = _ARTIFACTS / "asl_classifier.onnx"
 _META_PATH = _ARTIFACTS / "model_meta.json"
 
-# MediaPipe Hands returns this many landmarks per hand; each has (x, y, z).
 N_LANDMARKS = 21
 N_FEATURES = N_LANDMARKS * 3
 
-# Below this confidence the classifier returns "—" rather than guessing.
+# Below this confidence we return the empty sentinel rather than guessing.
 MIN_CONFIDENCE = 0.5
-# Percentile used by the training preprocessor for scale normalisation.
 NORM_PERCENTILE = 95
-# Guards division when the entire hand is at the origin.
 NORM_EPS = 1e-6
 
 
@@ -73,9 +70,8 @@ class SignClassifier:
     def classify(self, hands: list[DetectedHand]) -> DetectionResult:
         """Classify a frame's hands into a single letter prediction.
 
-        Runs the MLP against the hand MediaPipe labelled "Right" (camera
-        POV). The returned ``hands`` field carries every detected hand
-        through unchanged so the frontend can render overlays for both.
+        Runs the MLP against the camera-POV "Right" hand. The returned hands
+        field echoes every detected hand so the frontend can render overlays.
         """
         if not hands:
             return DetectionResult(sign="—", confidence=0.0, hands=[])

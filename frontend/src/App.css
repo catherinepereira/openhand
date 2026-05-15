@@ -218,66 +218,56 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   pointer-events: none;
 }
 
-/* ─── Mode toggle ──────────────────────────────────────────────────────── */
-.mode-toggle {
+/* ─── "Show skeleton" toggle ───────────────────────────────────────────── */
+.skeleton-toggle {
   display: inline-flex;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  padding: 3px;
-  background: var(--surface);
-  gap: 2px;
-}
-.mode-tab {
-  padding: 0.45rem 1rem;
-  border-radius: 999px;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.82rem;
-  font-weight: 500;
   color: var(--text-muted);
-  background: transparent;
-  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  cursor: pointer;
 }
-.mode-tab.active {
-  background: var(--text);
-  color: #fff;
-}
-.mode-tab:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.skeleton-toggle input { cursor: pointer; }
 
-/* ─── Transcribe controls ──────────────────────────────────────────────── */
-.transcribe-controls {
+/* ─── Phrase transcription display ─────────────────────────────────────── */
+.phrase-display {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-}
-.btn-record {
-  padding: 0.85rem 2rem;
-  background: var(--text);
-  color: #fff;
-  border-radius: 9px;
-  font-size: 0.95rem;
-  font-weight: 500;
+  gap: 0.25rem;
+  padding: 0.85rem 1.25rem;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
   min-width: 280px;
-  transition: background 0.15s, transform 0.05s;
-  user-select: none;
+  max-width: 90%;
 }
-.btn-record:hover:not(:disabled) { opacity: 0.9; }
-.btn-record:active:not(:disabled) { transform: scale(0.99); }
-.btn-record.recording {
-  background: #d33b3b;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-.btn-record:disabled { opacity: 0.5; cursor: not-allowed; }
-.transcribe-meta {
-  font-size: 0.75rem;
+.phrase-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin: 0;
+  font-weight: 600;
 }
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(211, 59, 59, 0.35); }
-  50%      { box-shadow: 0 0 0 10px rgba(211, 59, 59, 0); }
+.phrase-value {
+  font-size: 1rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--text);
+  word-break: break-all;
+  text-align: center;
+  min-height: 1.2em;
+}
+.phrase-placeholder {
+  color: var(--text-muted);
+  font-style: normal;
+}
+.phrase-committed {
+  color: var(--text);
+}
+.phrase-tentative {
+  color: var(--text-muted);
+  opacity: 0.65;
+  font-style: italic;
 }
 
 .webcam-status {

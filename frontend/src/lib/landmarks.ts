@@ -1,25 +1,23 @@
 /**
- * 127-landmark selection + per-sequence normalisation for the CTC
+ * 127-landmark selection + per-sequence normalization for the CTC
  * fingerspelling model.
  *
- * **MUST stay in sync with** ``openhand-model/model/landmarks.py`` and
- * ``openhand/backend/services/ctc_landmarks.py``. The CTC ONNX has no idea
- * what any of these slots mean — if the order here drifts from training
- * time, the model silently produces nonsense.
+ * MUST stay in sync with openhand-model/model/landmarks.py and
+ * openhand/backend/services/ctc_landmarks.py. The CTC ONNX has no idea what
+ * any of these slots mean; if the order here drifts from training time,
+ * the model silently produces nonsense.
  *
  * Type-level design:
  *   - {@link LandmarkGroup} enumerates the four input groups.
  *   - {@link GROUP_INDICES} is the single source of truth for which raw
  *     MediaPipe indices each slot uses, in canonical order.
  *   - {@link FRAME_FEATURES} (= 381) and {@link FRAME_LANDMARKS} (= 127)
- *     are derived constants — bumping the input lists automatically
- *     updates both.
+ *     are derived; bumping the input lists updates both.
  *   - {@link buildFrameFeatures} consumes a typed {@link RawFrameLandmarks}
- *     bag with one property per group, so swapping inputs becomes a
- *     compile error instead of a runtime slot mix-up.
+ *     bag with one property per group, so swapping inputs becomes a compile
+ *     error instead of a runtime slot mix-up.
  */
 
-// ─── Raw MediaPipe landmark indices (from the Kaggle 1st-place feature set)
 
 /** 40 lip outline indices on the MediaPipe FaceMesh. */
 export const LIPS_IDX = [
@@ -52,8 +50,6 @@ export const POSE_IDX = [0, 11, 12, 13, 14, 15, 16, 23, 24] as const;
 export const HAND_IDX = [
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
 ] as const;
-
-// ─── Group structure
 
 /** The four input sources for the CTC model. */
 export type LandmarkGroup = "face" | "pose" | "leftHand" | "rightHand";
@@ -104,9 +100,7 @@ export const FRAME_LANDMARKS: number =
 /** Total floats per frame: 3 (xyz) × FRAME_LANDMARKS = 381. */
 export const FRAME_FEATURES: number = FRAME_LANDMARKS * 3;
 
-// ─── Public types
-
-/** A single MediaPipe landmark in normalised (0..1) coordinates. */
+/** A single MediaPipe landmark in normalized (0..1) coordinates. */
 export interface NormalizedLandmark {
   x: number;
   y: number;
@@ -134,25 +128,23 @@ export interface RawFrameLandmarks {
 }
 
 /**
- * One frame's packed features + which landmarks were absent.
+ * One frame's packed features and which landmarks were absent.
  * Both arrays have a fixed length determined by FRAME_FEATURES /
  * FRAME_LANDMARKS at compile time.
  */
 export interface FrameFeatures {
-  /** length FRAME_FEATURES (= 390) */
+  /** length FRAME_FEATURES (= 381) */
   readonly features: Float32Array;
-  /** length FRAME_LANDMARKS (= 130). true where landmark was absent. */
+  /** length FRAME_LANDMARKS (= 127). 1 where landmark was absent. */
   readonly missing: Uint8Array;
 }
 
-// ─── Feature vector construction
-
 /**
- * Pack one frame's landmarks into the 390-float feature vector.
+ * Pack one frame's landmarks into the FRAME_FEATURES-float feature vector.
  *
- * The output ordering is fixed by GROUP_INDICES and matches the
- * training-time canonical column ordering. Missing groups produce
- * all-zero feature slots plus `missing[i] = 1` for each landmark.
+ * The output ordering is fixed by GROUP_INDICES and matches the training-
+ * time canonical column ordering. Missing groups produce all-zero feature
+ * slots plus `missing[i] = 1` for each landmark.
  */
 export function buildFrameFeatures(input: RawFrameLandmarks): FrameFeatures {
   const features = new Float32Array(FRAME_FEATURES);
@@ -163,7 +155,6 @@ export function buildFrameFeatures(input: RawFrameLandmarks): FrameFeatures {
     const source = input[group];
     const indices = GROUP_INDICES[group];
     if (source === null) {
-      // Group entirely absent → all-zero features + missing flags
       for (let i = 0; i < indices.length; i++) {
         missing[lm + i] = 1;
       }
@@ -182,11 +173,9 @@ export function buildFrameFeatures(input: RawFrameLandmarks): FrameFeatures {
   return { features, missing };
 }
 
-// ─── Per-sequence normalisation
-
-// Module-load sanity check that the four group offsets cover the full
-// landmark range with no gaps or overlaps. Catches a class of bugs where
-// GROUP_INDICES order drifts from GROUP_OFFSETS construction order.
+// Sanity check that the four group offsets cover the full landmark range
+// with no gaps or overlaps. Catches drift between GROUP_INDICES order and
+// GROUP_OFFSETS construction order.
 if (GROUP_OFFSETS.rightHand + GROUP_SIZES.rightHand !== FRAME_LANDMARKS) {
   throw new Error(
     `Landmark group offsets out of sync: rightHand ends at ${
@@ -196,8 +185,8 @@ if (GROUP_OFFSETS.rightHand + GROUP_SIZES.rightHand !== FRAME_LANDMARKS) {
 }
 
 /**
- * Normalise a sequence of (T, FRAME_FEATURES) frames in place, matching
- * the training-time normalise_sequence formula:
+ * Normalize a sequence of (T, FRAME_FEATURES) frames in place, matching the
+ * training-time normalize_sequence formula:
  *
  *   1. Pick the dominant-hand wrist (whichever is present in more frames)
  *      and anchor all landmarks to its mean position across the sequence.
@@ -217,7 +206,6 @@ export function normalizeSequence(
 ): Float32Array {
   if (T === 0) return features;
 
-  // Wrist anchor: pick the hand whose wrist landmark is present in more frames.
   const rWristLm = GROUP_OFFSETS.rightHand;
   const lWristLm = GROUP_OFFSETS.leftHand;
   let rPresent = 0;
@@ -229,7 +217,6 @@ export function normalizeSequence(
   const useRight = rPresent >= lPresent;
   const wristLm = useRight ? rWristLm : lWristLm;
 
-  // Mean of the chosen wrist over present frames.
   let ax = 0;
   let ay = 0;
   let az = 0;
@@ -248,7 +235,6 @@ export function normalizeSequence(
     az /= nPresent;
   }
 
-  // Subtract anchor from every (x, y, z) triplet of every landmark.
   for (let t = 0; t < T; t++) {
     for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
       const base = (t * FRAME_LANDMARKS + lmIdx) * 3;
@@ -259,7 +245,6 @@ export function normalizeSequence(
   }
 
   // 95th-percentile absolute value across present landmark coordinates.
-  // Collect values into a scratch array, partial-sort to find p95.
   const presentVals: number[] = [];
   for (let t = 0; t < T; t++) {
     for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
@@ -275,9 +260,7 @@ export function normalizeSequence(
   let scale = 1;
   if (presentVals.length > 0) {
     presentVals.sort((a, b) => a - b);
-    // Match numpy.percentile(arr, 95) default "linear" interpolation:
-    //   pos = 0.95 * (n - 1)
-    //   result = arr[floor(pos)] + (pos - floor(pos)) * (arr[ceil(pos)] - arr[floor(pos)])
+    // Match numpy.percentile(arr, 95) default "linear" interpolation.
     const pos = 0.95 * (presentVals.length - 1);
     const lo = Math.floor(pos);
     const hi = Math.ceil(pos);
@@ -289,8 +272,7 @@ export function normalizeSequence(
     for (let i = 0; i < features.length; i++) features[i] *= inv;
   }
 
-  // Re-zero missing landmarks (anchor subtraction would have made them
-  // non-zero); training-time code does the same.
+  // Re-zero missing landmarks; anchor subtraction made them non-zero.
   for (let t = 0; t < T; t++) {
     for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
       if (missing[t * FRAME_LANDMARKS + lmIdx] === 0) continue;

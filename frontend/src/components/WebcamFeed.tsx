@@ -6,8 +6,8 @@ interface Props {
   videoRef: React.RefObject<HTMLVideoElement>;
   status: "idle" | "requesting" | "active" | "error";
   error: string | null;
-  /** Every visible hand, tagged with handedness, in MediaPipe normalised
-   *  coords (x, y ∈ [0,1] of the raw unmirrored frame). */
+  /** Every visible hand, tagged with handedness, in MediaPipe normalized
+   *  coords (x, y in [0,1] of the raw unmirrored frame). */
   hands: DetectedHand[];
 }
 
@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   error: "Camera error",
 };
 
-// MediaPipe hand connections — pairs of landmark indices forming bones.
+// MediaPipe hand connections: pairs of landmark indices forming bones.
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 1], [1, 2], [2, 3], [3, 4],                  // Thumb
   [0, 5], [5, 6], [6, 7], [7, 8],                  // Index
@@ -40,9 +40,8 @@ function drawHand(
 ) {
   if (hand.landmarks.length !== 21) return;
 
-  // MediaPipe coords are in raw-video space (unmirrored). The displayed
-  // <video> has CSS scaleX(-1), so flip x to put the overlay on the
-  // mirrored visual.
+  // MediaPipe coords are raw-video (unmirrored). The displayed video has
+  // CSS scaleX(-1), so flip x to align the overlay with the mirrored visual.
   const points = hand.landmarks.map((lm) => ({
     x: (1 - lm.x) * canvasW,
     y: lm.y * canvasH,
@@ -99,8 +98,8 @@ export function WebcamFeed({ videoRef, status, error, hands }: Props) {
     if (videoW === 0 || videoH === 0) return;
 
     // Match canvas backing buffer to the video stream's native resolution.
-    // MediaPipe landmark x/y are normalised to the source frame size; CSS
-    // scales the canvas display down to share the same rect as the <video>.
+    // MediaPipe x/y are normalized to source frame size; CSS scales the
+    // canvas display rect down to share the same box as the video.
     if (canvas.width !== videoW) canvas.width = videoW;
     if (canvas.height !== videoH) canvas.height = videoH;
 
