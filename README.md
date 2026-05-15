@@ -25,7 +25,7 @@ models run server-side via `onnxruntime`. No GPU in the runtime path.
 Alphabet inference is ~0.02ms per frame on CPU.
 
 None of the trained model files are checked in. Train them in the
-sibling repo [openhand-model](../openhand-model) and copy the outputs
+sibling repo [openhand-model](https://github.com/catherinepereira/openhand-model) and copy the outputs
 into `backend/models/artifacts/`. See "Setting up the models" below.
 
 ## Setup
