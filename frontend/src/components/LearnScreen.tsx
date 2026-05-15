@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { HTTP_ENDPOINTS } from "../config";
 import type { DetectionResult } from "../hooks/useSignDetection";
+import { useTargetedTranscribe } from "../hooks/useTargetedTranscribe";
+import type { FrameDetection } from "../lib/mediapipe";
 import { HandModel3D } from "./HandModel3D";
-import { WebcamFeed } from "./WebcamFeed";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+/**
+ * Letters where the static-frame classifier can't disambiguate because
+ * the sign is defined by motion (not just handshape). For these we score
+ * against the CTC model's decoded text instead of the per-frame argmax.
+ *
+ * J is "I + drop-and-hook"; Z is "D-finger + trace a Z". The static
+ * frames look like I and D respectively.
+ */
+const MOTION_LETTERS = new Set(["J", "Z"]);
 
 interface ReferencePayload {
   format: string;
@@ -16,30 +27,53 @@ interface ReferencePayload {
 type Grade = "green" | "yellow" | "red" | "none";
 
 interface Props {
-  videoRef: React.RefObject<HTMLVideoElement>;
-  status: "idle" | "requesting" | "active" | "error";
-  error: string | null;
+  /** Live classifier output (per-frame argmax + confidence). */
   detection: DetectionResult;
+  /** Raw MediaPipe output, needed for CTC scoring on motion letters. */
+  frameDetection: FrameDetection | null;
+  active: boolean;
   onExit: () => void;
 }
 
 /**
- * Map the live classifier output for the *target* letter onto a grade.
- * The classifier returns a single argmax letter plus its confidence; if
- * the argmax is the target letter, the confidence number directly tells
- * us how close the user is. If it's a different letter, we have no
- * direct readout on "how close to target" so we grade red.
+ * Static-frame grading for handshape-only letters (everything except J/Z).
  *
- * Thresholds picked so a correctly-formed sign sits comfortably in
- * green: the alphabet model averages ~0.95+ confidence on its own
- * test set.
+ * The classifier returns a single argmax letter plus its confidence. If
+ * the argmax matches the target, the confidence value directly tells us
+ * how close the user is. Below 0.85 confidence we mark yellow; if the
+ * argmax is a different letter we mark red.
  */
-function gradeFor(targetLetter: string, detection: DetectionResult): Grade {
+function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
   if (detection.hands.length === 0) return "none";
   if (detection.sign === "-") return "red";
   if (detection.sign.toUpperCase() !== targetLetter) return "red";
   if (detection.confidence >= 0.85) return "green";
   if (detection.confidence >= 0.5) return "yellow";
+  return "red";
+}
+
+/**
+ * CTC-based grading for motion letters. The decoded string from the
+ * rolling 2-second window will contain garbage between meaningful gestures
+ * (the CTC model was trained on continuous fingerspelling, not isolated
+ * letters), so we look for the target letter anywhere in the decode.
+ *
+ * Green:  target letter appears in the decode.
+ * Yellow: hand is visible and the decode is non-empty but doesn't yet
+ *         contain the target.
+ * Red:    decode is empty.
+ * None:   no hand in frame.
+ */
+function gradeMotion(
+  targetLetter: string,
+  detection: DetectionResult,
+  ctcText: string,
+): Grade {
+  if (detection.hands.length === 0) return "none";
+  const decoded = ctcText.toLowerCase();
+  const target = targetLetter.toLowerCase();
+  if (decoded.includes(target)) return "green";
+  if (decoded.length > 0) return "yellow";
   return "red";
 }
 
@@ -57,10 +91,21 @@ const GRADE_COLOR: Record<Grade, string> = {
   none: "#888",
 };
 
-export function LearnScreen({ videoRef, status, error, detection, onExit }: Props) {
+/**
+ * Left-column panel for the Learn view. Renders alongside the persistent
+ * webcam feed in the hero layout, so the camera doesn't have to remount
+ * when entering/leaving Learn mode.
+ */
+export function LearnPanel({ detection, frameDetection, active, onExit }: Props) {
   const [refs, setRefs] = useState<ReferencePayload | null>(null);
   const [refsError, setRefsError] = useState<string | null>(null);
   const [target, setTarget] = useState<string>("A");
+
+  const isMotion = MOTION_LETTERS.has(target);
+  // Only run the CTC decode loop for motion letters; for everything else
+  // the static classifier is enough and the CTC traffic is pure overhead
+  // (the backend ONNX inference is CPU-bound and ~50-150ms per call).
+  const ctc = useTargetedTranscribe(frameDetection, active && isMotion);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,20 +132,20 @@ export function LearnScreen({ videoRef, status, error, detection, onExit }: Prop
     return refs.letters[target] ?? null;
   }, [refs, target]);
 
-  const grade: Grade = useMemo(
-    () => gradeFor(target, detection),
-    [target, detection],
-  );
+  const grade: Grade = useMemo(() => {
+    if (isMotion) {
+      if (ctc.unavailable) return gradeStatic(target, detection);
+      return gradeMotion(target, detection, ctc.latest);
+    }
+    return gradeStatic(target, detection);
+  }, [isMotion, target, detection, ctc.latest, ctc.unavailable]);
 
   return (
-    <div className="learn-screen">
-      <header className="learn-nav">
-        <button className="btn-launch" onClick={onExit}>
-          ← Back
-        </button>
+    <div className="learn-panel-col">
+      <div className="learn-panel-header">
+        <button className="btn-launch" onClick={onExit}>← Back</button>
         <h2 className="learn-title">Learn the signs</h2>
-        <div style={{ width: 80 }} />
-      </header>
+      </div>
 
       <div className="letter-grid">
         {LETTERS.map((l) => {
@@ -118,50 +163,56 @@ export function LearnScreen({ videoRef, status, error, detection, onExit }: Prop
         })}
       </div>
 
-      <div className="learn-main">
-        <div className="learn-panel">
-          <div className="learn-panel-label">REFERENCE - {target}</div>
-          <div className="learn-3d-wrap">
-            {refsError && (
-              <div className="learn-error">
-                Could not load reference: {refsError}
-              </div>
-            )}
-            {!refs && !refsError && (
-              <div className="learn-loading">Loading reference poses...</div>
-            )}
-            {targetLandmarks && (
-              <HandModel3D landmarks={targetLandmarks} color="#3c82f0" autoRotate />
-            )}
-          </div>
-        </div>
-
-        <div className="learn-panel">
-          <div className="learn-panel-label">YOUR HAND</div>
-          <WebcamFeed
-            videoRef={videoRef}
-            status={status}
-            error={error}
-            hands={detection.hands}
-          />
-          <div
-            className="grade-bar"
-            style={{ borderColor: GRADE_COLOR[grade] }}
-          >
-            <span
-              className="grade-dot"
-              style={{ background: GRADE_COLOR[grade] }}
-            />
-            <span className="grade-label">{GRADE_LABEL[grade]}</span>
-            {grade !== "none" && detection.sign !== "-" && (
-              <span className="grade-detail">
-                detected <strong>{detection.sign}</strong>
-                {" "}({Math.round(detection.confidence * 100)}%)
-              </span>
-            )}
-          </div>
+      <div className="reference-block">
+        <div className="learn-panel-label">REFERENCE - {target}</div>
+        <div className="learn-3d-wrap">
+          {refsError && (
+            <div className="learn-error">
+              Could not load reference: {refsError}
+            </div>
+          )}
+          {!refs && !refsError && (
+            <div className="learn-loading">Loading reference poses...</div>
+          )}
+          {targetLandmarks && (
+            <HandModel3D landmarks={targetLandmarks} />
+          )}
         </div>
       </div>
+
+      <div
+        className="grade-bar"
+        style={{ borderColor: GRADE_COLOR[grade] }}
+      >
+        <span
+          className="grade-dot"
+          style={{ background: GRADE_COLOR[grade] }}
+        />
+        <span className="grade-label">{GRADE_LABEL[grade]}</span>
+        {isMotion ? (
+          <span className="grade-detail">
+            {ctc.unavailable
+              ? "CTC model unavailable; using static grade"
+              : ctc.latest
+                ? <>decode <strong>{ctc.latest}</strong></>
+                : "move your hand"}
+          </span>
+        ) : (
+          grade !== "none" && detection.sign !== "-" && (
+            <span className="grade-detail">
+              detected <strong>{detection.sign}</strong>
+              {" "}({Math.round(detection.confidence * 100)}%)
+            </span>
+          )
+        )}
+      </div>
+
+      {isMotion && (
+        <p className="learn-hint">
+          {target} is a motion sign. Trace the letter in front of the
+          camera; we score on the CTC model's decode of the last ~2 seconds.
+        </p>
+      )}
     </div>
   );
 }

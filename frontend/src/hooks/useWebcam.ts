@@ -1,12 +1,35 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type WebcamStatus = "idle" | "requesting" | "active" | "error";
 
 export function useWebcam() {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // videoRef is exposed as a normal ref so callers can pass it to <video>,
+  // but we also track the *current* element via a callback ref so that
+  // when the consumer remounts the <video> in a different view (e.g.
+  // switching from the home screen to the Learn screen) we can re-attach
+  // the live MediaStream to the new element. Without this, the stream
+  // stays bound to the unmounted element and the new <video> is blank.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<WebcamStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const attachStreamTo = useCallback((el: HTMLVideoElement | null) => {
+    if (!el) return;
+    if (el.srcObject !== streamRef.current) {
+      el.srcObject = streamRef.current;
+    }
+    if (streamRef.current && el.paused) {
+      el.play().catch(() => {
+        // Autoplay can fail on iOS Safari without a user gesture; ignore.
+      });
+    }
+  }, []);
+
+  const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    attachStreamTo(el);
+  }, [attachStreamTo]);
 
   const start = async () => {
     setStatus("requesting");
@@ -17,10 +40,7 @@ export function useWebcam() {
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      attachStreamTo(videoRef.current);
       setStatus("active");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Camera access denied");
@@ -37,5 +57,17 @@ export function useWebcam() {
 
   useEffect(() => () => { stop(); }, []);
 
-  return { videoRef, status, error, start, stop };
+  return {
+    /** Pass to JSX: `<video ref={videoRef} />`. Re-attaches the stream
+     *  if React remounts the element (e.g. switching views). */
+    videoRef: setVideoRef,
+    /** For consumers that need to read the underlying element (canvas
+     *  sizing, MediaPipe input, etc.). Always points at the most recent
+     *  mounted <video>. */
+    videoElementRef: videoRef,
+    status,
+    error,
+    start,
+    stop,
+  };
 }

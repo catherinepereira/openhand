@@ -406,25 +406,23 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text);
 }
 
-/* Learn screen */
-.learn-screen {
+/* Learn panel (lives in hero-left when view === "learn") */
+.learn-panel-col {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  padding: 1.25rem 2.5rem 2.5rem;
-  gap: 1.5rem;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
-.learn-nav {
+.learn-panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
+  gap: 1rem;
 }
 
 .learn-title {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -432,18 +430,16 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .letter-grid {
   display: grid;
   grid-template-columns: repeat(13, 1fr);
-  gap: 0.4rem;
-  max-width: 900px;
-  margin: 0 auto;
+  gap: 0.3rem;
   width: 100%;
 }
 
 .letter-tile {
   aspect-ratio: 1;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--bg);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -462,22 +458,14 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   cursor: not-allowed;
 }
 
-.learn-main {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  flex: 1;
-  min-height: 460px;
-}
-
-.learn-panel {
+.reference-block {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: var(--bg);
+  gap: 0.5rem;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg);
 }
 
 .learn-panel-label {
@@ -489,8 +477,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .learn-3d-wrap {
   position: relative;
-  flex: 1;
-  min-height: 360px;
+  height: 260px;
   border-radius: 12px;
   background: var(--surface);
   overflow: hidden;
@@ -540,10 +527,16 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text-muted);
 }
 
+.learn-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding: 0 0.25rem;
+}
+
 /* Responsive */
-@media (max-width: 900px) {
-  .learn-main { grid-template-columns: 1fr; }
-  .letter-grid { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 1100px) {
+  .letter-grid { grid-template-columns: repeat(9, 1fr); }
 }
 
 @media (max-width: 700px) {
@@ -554,5 +547,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   .info-block { border-right: none; border-bottom: 1px solid var(--border); }
   .nav { padding: 0 1.25rem; }
   .nav-links { display: none; }
-  .learn-screen { padding: 1rem 1.25rem 2rem; }
+  .letter-grid { grid-template-columns: repeat(7, 1fr); }
+  .learn-3d-wrap { height: 220px; }
 }

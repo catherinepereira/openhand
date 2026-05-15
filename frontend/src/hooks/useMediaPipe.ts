@@ -22,7 +22,7 @@ const FRAME_INTERVAL_MS = 100;
  *                 re-triggering effects.
  */
 export function useMediaPipe(
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   active: boolean,
 ) {
   const detectorsRef = useRef<MediaPipeDetectors | null>(null);

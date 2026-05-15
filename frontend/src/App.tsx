@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
-import { LearnScreen } from "./components/LearnScreen";
+import { LearnPanel } from "./components/LearnScreen";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
@@ -15,13 +15,16 @@ const SIGN_DEBOUNCE_MS = 800;
 type View = "home" | "learn";
 
 export default function App() {
-  const { videoRef, status, error, start, stop } = useWebcam();
+  const { videoRef, videoElementRef, status, error, start, stop } = useWebcam();
   const isActive = status === "active";
   const [view, setView] = useState<View>("home");
 
-  const { detection } = useMediaPipe(videoRef, isActive);
+  const { detection } = useMediaPipe(videoElementRef, isActive);
   const { result: liveResult } = useSignDetection(detection, isActive);
-  const transcribe = useStreamingTranscribe(detection, isActive);
+  // Streaming phrase transcription only runs on the home view; Learn has
+  // its own CTC consumer (useTargetedTranscribe) and we don't want two
+  // separate CTC decoders competing for the same backend.
+  const transcribe = useStreamingTranscribe(detection, isActive && view === "home");
 
   const [outputText, setOutputText] = useState("");
   const [speaking, setSpeaking] = useState(false);
@@ -80,20 +83,6 @@ export default function App() {
     }
   }, [outputText, speaking]);
 
-  if (view === "learn") {
-    return (
-      <div className="app">
-        <LearnScreen
-          videoRef={videoRef}
-          status={status}
-          error={error}
-          detection={liveResult}
-          onExit={exitLearn}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="app">
       <header className="nav">
@@ -112,21 +101,35 @@ export default function App() {
       </header>
 
       <main className="hero">
+        {/* Left column swaps content based on the current view. The right
+            column (webcam + overlays) is identical in both views, so the
+            <video> element and its MediaStream stay mounted. */}
         <div className="hero-left">
-          <div className="badge">OPEN SOURCE · REAL-TIME</div>
-          <h1 className="hero-heading">
-            Sign language,<br />
-            <strong>understood.</strong>
-          </h1>
-          <p className="hero-sub">
-            Point your camera. OpenHand detects signs as you make them and converts to text and speech in real time.
-          </p>
-          <div className="hero-ctas">
-            <button className="btn-primary" onClick={isActive ? stop : start}>
-              {isActive ? "Stop camera" : "Start camera"}
-            </button>
-            <button className="btn-secondary" onClick={enterLearn}>Learn the signs</button>
-          </div>
+          {view === "home" ? (
+            <>
+              <div className="badge">OPEN SOURCE · REAL-TIME</div>
+              <h1 className="hero-heading">
+                Sign language,<br />
+                <strong>understood.</strong>
+              </h1>
+              <p className="hero-sub">
+                Point your camera. OpenHand detects signs as you make them and converts to text and speech in real time.
+              </p>
+              <div className="hero-ctas">
+                <button className="btn-primary" onClick={isActive ? stop : start}>
+                  {isActive ? "Stop camera" : "Start camera"}
+                </button>
+                <button className="btn-secondary" onClick={enterLearn}>Learn the signs</button>
+              </div>
+            </>
+          ) : (
+            <LearnPanel
+              detection={liveResult}
+              frameDetection={detection}
+              active={isActive}
+              onExit={exitLearn}
+            />
+          )}
         </div>
 
         <div className="hero-right">
@@ -148,7 +151,7 @@ export default function App() {
 
           <SignDisplay sign={liveResult.sign} confidence={liveResult.confidence} />
 
-          {isActive && (
+          {view === "home" && isActive && (
             <div className="phrase-display">
               <span className="phrase-label">PHRASE</span>
               <span className="phrase-value">
@@ -170,7 +173,7 @@ export default function App() {
         </div>
       </main>
 
-      {(isActive || outputText) && (
+      {view === "home" && (isActive || outputText) && (
         <div className="output-bar">
           <TextOutput
             text={outputText}

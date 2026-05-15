@@ -3,7 +3,8 @@ import { HandIcon } from "./icons";
 import type { DetectedHand } from "../hooks/useSignDetection";
 
 interface Props {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  /** Callback ref from useWebcam. Pass straight to the <video ref={...}>. */
+  videoRef: (el: HTMLVideoElement | null) => void;
   status: "idle" | "requesting" | "active" | "error";
   error: string | null;
   /** Every visible hand, tagged with handedness, in MediaPipe normalized
@@ -85,6 +86,15 @@ function drawHand(
 
 export function WebcamFeed({ videoRef, status, error, hands }: Props) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const videoEl = useRef<HTMLVideoElement | null>(null);
+
+  // Forwarding ref callback: keep a local handle for sizing the overlay
+  // canvas, and pass the element up to the parent's useWebcam callback
+  // so the stream gets attached.
+  const setVideo = (el: HTMLVideoElement | null) => {
+    videoEl.current = el;
+    videoRef(el);
+  };
 
   useEffect(() => {
     const canvas = overlayRef.current;
@@ -92,7 +102,7 @@ export function WebcamFeed({ videoRef, status, error, hands }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const video = videoRef.current;
+    const video = videoEl.current;
     const videoW = video?.videoWidth ?? 0;
     const videoH = video?.videoHeight ?? 0;
     if (videoW === 0 || videoH === 0) return;
@@ -106,7 +116,7 @@ export function WebcamFeed({ videoRef, status, error, hands }: Props) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for (const h of hands) drawHand(ctx, h, canvas.width, canvas.height);
-  }, [hands, videoRef]);
+  }, [hands]);
 
   return (
     <div className="webcam-wrap">
@@ -117,7 +127,7 @@ export function WebcamFeed({ videoRef, status, error, hands }: Props) {
           </div>
         )}
         <video
-          ref={videoRef}
+          ref={setVideo}
           playsInline
           muted
           className={`webcam-video ${status === "active" ? "visible" : ""}`}

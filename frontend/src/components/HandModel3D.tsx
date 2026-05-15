@@ -1,6 +1,6 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
 // MediaPipe hand topology: 21 landmarks per hand, indexed 0..20.
@@ -19,9 +19,6 @@ interface Props {
   landmarks: ReadonlyArray<number>;
   /** Optional accent color for joints and bones. */
   color?: string;
-  /** If true, the model auto-rotates around the Y axis. Useful for the
-   *  reference panel to give a sense of depth. */
-  autoRotate?: boolean;
 }
 
 /**
@@ -41,7 +38,6 @@ function toPoints(landmarks: ReadonlyArray<number>): THREE.Vector3[] {
 }
 
 function Bones({ points, color }: { points: THREE.Vector3[]; color: string }) {
-  // Each bone is a thin cylinder oriented from joint a to joint b.
   return (
     <>
       {HAND_CONNECTIONS.map(([a, b], i) => {
@@ -55,11 +51,7 @@ function Bones({ points, color }: { points: THREE.Vector3[]; color: string }) {
           dir.clone().normalize(),
         );
         return (
-          <mesh
-            key={i}
-            position={mid}
-            quaternion={quat}
-          >
+          <mesh key={i} position={mid} quaternion={quat}>
             <cylinderGeometry args={[0.02, 0.02, len, 8]} />
             <meshStandardMaterial color={color} roughness={0.4} metalness={0.1} />
           </mesh>
@@ -82,23 +74,13 @@ function Joints({ points, color }: { points: THREE.Vector3[]; color: string }) {
   );
 }
 
-function Scene({ points, color, autoRotate }: { points: THREE.Vector3[]; color: string; autoRotate: boolean }) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  // Center the hand around the wrist (already at origin given the
-  // wrist-anchored normalization, but be defensive in case input drifts).
+function Scene({ points, color }: { points: THREE.Vector3[]; color: string }) {
+  // Wrist-anchor defensively in case the input drifts off origin.
   const centered = useMemo(() => {
     const wrist = points[0];
     return points.map((p) => p.clone().sub(wrist));
   }, [points]);
 
-  useFrame((_, delta) => {
-    if (autoRotate && groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.4;
-    }
-  });
-
-  // On first render, frame the camera so the hand fills the viewport.
   const { camera } = useThree();
   useEffect(() => {
     camera.position.set(0, 0, 4);
@@ -106,14 +88,14 @@ function Scene({ points, color, autoRotate }: { points: THREE.Vector3[]; color: 
   }, [camera]);
 
   return (
-    <group ref={groupRef}>
+    <group>
       <Bones points={centered} color={color} />
       <Joints points={centered} color={color} />
     </group>
   );
 }
 
-export function HandModel3D({ landmarks, color = "#3c82f0", autoRotate = true }: Props) {
+export function HandModel3D({ landmarks, color = "#3c82f0" }: Props) {
   const points = useMemo(() => toPoints(landmarks), [landmarks]);
 
   return (
@@ -125,7 +107,7 @@ export function HandModel3D({ landmarks, color = "#3c82f0", autoRotate = true }:
       <ambientLight intensity={0.6} />
       <directionalLight position={[3, 4, 5]} intensity={0.8} />
       <directionalLight position={[-3, -2, -4]} intensity={0.25} />
-      <Scene points={points} color={color} autoRotate={autoRotate} />
+      <Scene points={points} color={color} />
       <OrbitControls
         enablePan={false}
         enableZoom={true}
