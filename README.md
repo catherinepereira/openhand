@@ -8,12 +8,12 @@ There are two paths in the app:
 
 1. **Per-frame letter detection.** Hold up an A-Z handshape, get one
    letter back at a time, debounced into a sliding-window output bar.
-   Backed by a small MLP (~62K params) trained on the Kaggle ASL
-   Alphabet dataset.
+   Backed by a small MLP (~62K params) trained on the [Kaggle ASL
+   Alphabet dataset](https://www.kaggle.com/datasets/grassknoted/asl-alphabet).
 2. **Streaming phrase transcription.** Sign a full word or phrase; a
    rolling buffer of the last ~3 seconds is decoded by a CTC transformer
-   every 750ms and committed when you pause. Trained on the Kaggle ASL
-   Fingerspelling competition data.
+   every 750ms and committed when you pause. Trained on the [Kaggle ASL
+   Fingerspelling competition data](https://www.kaggle.com/competitions/asl-fingerspelling/).
 
 The CTC path is wired end to end but the phrase display is hidden in the
 UI right now; the focus is on getting per-letter recognition reliable
@@ -25,7 +25,7 @@ models run server-side via `onnxruntime`. No GPU in the runtime path.
 Alphabet inference is ~0.02ms per frame on CPU.
 
 None of the trained model files are checked in. Train them in the
-sibling repo [openhand-model](https://github.com/catherinepereira/openhand-model) and copy the outputs
+sibling repo [openhand-model](https://www.github.com/catherinepereira/openhand-model) and copy the outputs
 into `backend/models/artifacts/`. See "Setting up the models" below.
 
 ## Setup
