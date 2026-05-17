@@ -37,6 +37,10 @@ dist/
 dist-ssr/
 *.local
 
+# MediaPipe Tasks model files. Downloaded by
+# frontend/scripts/download_mediapipe_models.mjs at setup time.
+frontend/public/models/*.task
+
 # Editor / OS / agent state
 .vscode/
 !.vscode/extensions.json
