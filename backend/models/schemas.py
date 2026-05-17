@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import Optional
 
 
 class Landmark(BaseModel):
@@ -26,12 +25,7 @@ class DetectionResult(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    voice_id: Optional[str] = "21m00Tcm4TlvDq8ikWAM"
-
-
-class TTSResponse(BaseModel):
-    audio_url: Optional[str] = None
-    error: Optional[str] = None
+    voice_id: str | None = "21m00Tcm4TlvDq8ikWAM"
 
 
 class DetectLandmarksRequest(BaseModel):

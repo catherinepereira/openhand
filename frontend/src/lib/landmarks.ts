@@ -1,6 +1,6 @@
 /**
- * 127-landmark selection + per-sequence normalization for the CTC
- * fingerspelling model.
+ * 127-landmark selection for the CTC fingerspelling and isolated-sign
+ * models.
  *
  * MUST stay in sync with openhand-model/model/landmarks.py and
  * openhand/backend/services/ctc_landmarks.py. The CTC ONNX has no idea what
@@ -108,7 +108,7 @@ export interface NormalizedLandmark {
 }
 
 /**
- * The raw landmarks from one webcam frame, organised by source group.
+ * The raw landmarks from one webcam frame, organized by source group.
  * Each property is either the full landmark list for that source, or
  * `null` when the corresponding MediaPipe detector found nothing.
  *
@@ -120,6 +120,7 @@ export interface NormalizedLandmark {
  * lib/mediapipe.ts for how we use MediaPipe's handedness output to
  * assign them.
  */
+
 export interface RawFrameLandmarks {
   face: readonly NormalizedLandmark[] | null;
   pose: readonly NormalizedLandmark[] | null;
@@ -184,104 +185,3 @@ if (GROUP_OFFSETS.rightHand + GROUP_SIZES.rightHand !== FRAME_LANDMARKS) {
   );
 }
 
-/**
- * Normalize a sequence of (T, FRAME_FEATURES) frames in place, matching the
- * training-time normalize_sequence formula:
- *
- *   1. Pick the dominant-hand wrist (whichever is present in more frames)
- *      and anchor all landmarks to its mean position across the sequence.
- *   2. Divide by the 95th-percentile absolute deviation of all present
- *      landmark coordinates.
- *   3. Re-zero landmarks that were originally missing.
- *
- * @param features (T, FRAME_FEATURES) tensor, flattened row-major.
- *                  Modified in place.
- * @param missing  (T, FRAME_LANDMARKS) byte mask. Read-only.
- * @param T        number of frames.
- */
-export function normalizeSequence(
-  features: Float32Array,
-  missing: Uint8Array,
-  T: number,
-): Float32Array {
-  if (T === 0) return features;
-
-  const rWristLm = GROUP_OFFSETS.rightHand;
-  const lWristLm = GROUP_OFFSETS.leftHand;
-  let rPresent = 0;
-  let lPresent = 0;
-  for (let t = 0; t < T; t++) {
-    if (missing[t * FRAME_LANDMARKS + rWristLm] === 0) rPresent++;
-    if (missing[t * FRAME_LANDMARKS + lWristLm] === 0) lPresent++;
-  }
-  const useRight = rPresent >= lPresent;
-  const wristLm = useRight ? rWristLm : lWristLm;
-
-  let ax = 0;
-  let ay = 0;
-  let az = 0;
-  let nPresent = 0;
-  for (let t = 0; t < T; t++) {
-    if (missing[t * FRAME_LANDMARKS + wristLm] !== 0) continue;
-    const base = (t * FRAME_LANDMARKS + wristLm) * 3;
-    ax += features[base];
-    ay += features[base + 1];
-    az += features[base + 2];
-    nPresent++;
-  }
-  if (nPresent > 0) {
-    ax /= nPresent;
-    ay /= nPresent;
-    az /= nPresent;
-  }
-
-  for (let t = 0; t < T; t++) {
-    for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
-      const base = (t * FRAME_LANDMARKS + lmIdx) * 3;
-      features[base] -= ax;
-      features[base + 1] -= ay;
-      features[base + 2] -= az;
-    }
-  }
-
-  // 95th-percentile absolute value across present landmark coordinates.
-  const presentVals: number[] = [];
-  for (let t = 0; t < T; t++) {
-    for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
-      if (missing[t * FRAME_LANDMARKS + lmIdx] !== 0) continue;
-      const base = (t * FRAME_LANDMARKS + lmIdx) * 3;
-      presentVals.push(
-        Math.abs(features[base]),
-        Math.abs(features[base + 1]),
-        Math.abs(features[base + 2]),
-      );
-    }
-  }
-  let scale = 1;
-  if (presentVals.length > 0) {
-    presentVals.sort((a, b) => a - b);
-    // Match numpy.percentile(arr, 95) default "linear" interpolation.
-    const pos = 0.95 * (presentVals.length - 1);
-    const lo = Math.floor(pos);
-    const hi = Math.ceil(pos);
-    const frac = pos - lo;
-    scale = presentVals[lo] + frac * (presentVals[hi] - presentVals[lo]);
-  }
-  if (scale > 1e-6) {
-    const inv = 1 / scale;
-    for (let i = 0; i < features.length; i++) features[i] *= inv;
-  }
-
-  // Re-zero missing landmarks; anchor subtraction made them non-zero.
-  for (let t = 0; t < T; t++) {
-    for (let lmIdx = 0; lmIdx < FRAME_LANDMARKS; lmIdx++) {
-      if (missing[t * FRAME_LANDMARKS + lmIdx] === 0) continue;
-      const base = (t * FRAME_LANDMARKS + lmIdx) * 3;
-      features[base] = 0;
-      features[base + 1] = 0;
-      features[base + 2] = 0;
-    }
-  }
-
-  return features;
-}

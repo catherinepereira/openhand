@@ -91,25 +91,10 @@ export async function createDetectors(
   };
 }
 
-/**
- * MediaPipe's per-result handedness label, from the camera's POV.
- * "Left" means the hand appearing on the left side of the camera image,
- * which (with a non-mirrored feed) corresponds to the user's **right** hand.
- */
-export type MediaPipeHandednessLabel = "Left" | "Right";
-
-/**
- * One frame's typed detection output, ready to feed into
- * {@link buildFrameFeatures} from `landmarks.ts`.
- *
- * `handedness` includes the per-detected-hand label that MediaPipe
- * produced so callers can decide how to interpret left/right (see
- * `lib/handedness.ts`).
- */
+/** One frame's typed detection output, ready to feed into
+ *  {@link buildFrameFeatures} from `landmarks.ts`. */
 export interface FrameDetection {
   landmarks: RawFrameLandmarks;
-  /** Per-hand labels in the same order as `landmarks.leftHand` / `rightHand`. */
-  handedness: { left: MediaPipeHandednessLabel | null; right: MediaPipeHandednessLabel | null };
 }
 
 // Reusable offscreen canvas for sampling the video at its native source
@@ -155,22 +140,11 @@ export function detectFrame(
   const poseResult = safeDetect(() => detectors.pose.detect(source));
   const faceResult = safeDetect(() => detectors.face.detect(source));
 
-  const { leftHand, rightHand, leftLabel, rightLabel } = splitHands(handResult);
+  const { leftHand, rightHand } = splitHands(handResult);
   const pose = firstOrNull(poseResult?.landmarks);
   const face = firstOrNull(faceResult?.faceLandmarks);
 
-  return {
-    landmarks: {
-      face,
-      pose,
-      leftHand,
-      rightHand,
-    },
-    handedness: {
-      left: leftLabel,
-      right: rightLabel,
-    },
-  };
+  return { landmarks: { face, pose, leftHand, rightHand } };
 }
 
 /**
@@ -200,30 +174,20 @@ function firstOrNull<T>(arr: readonly T[] | undefined): T | null {
 export function splitHands(result: HandLandmarkerResult | null): {
   leftHand: NormalizedLandmark[] | null;
   rightHand: NormalizedLandmark[] | null;
-  leftLabel: MediaPipeHandednessLabel | null;
-  rightLabel: MediaPipeHandednessLabel | null;
 } {
   let leftHand: NormalizedLandmark[] | null = null;
   let rightHand: NormalizedLandmark[] | null = null;
-  let leftLabel: MediaPipeHandednessLabel | null = null;
-  let rightLabel: MediaPipeHandednessLabel | null = null;
 
   if (!result || !result.landmarks) {
-    return { leftHand, rightHand, leftLabel, rightLabel };
+    return { leftHand, rightHand };
   }
 
   for (let i = 0; i < result.landmarks.length; i++) {
     const lms = result.landmarks[i];
-    const handednessForHand = result.handedness?.[i];
-    const top = handednessForHand?.[0]?.categoryName;
-    if (top === "Left") {
-      leftHand = lms;
-      leftLabel = "Left";
-    } else if (top === "Right") {
-      rightHand = lms;
-      rightLabel = "Right";
-    }
+    const top = result.handedness?.[i]?.[0]?.categoryName;
+    if (top === "Left") leftHand = lms;
+    else if (top === "Right") rightHand = lms;
   }
 
-  return { leftHand, rightHand, leftLabel, rightLabel };
+  return { leftHand, rightHand };
 }

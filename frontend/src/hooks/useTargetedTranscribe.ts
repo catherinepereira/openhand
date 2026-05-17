@@ -6,10 +6,9 @@ import type { FrameDetection } from "../lib/mediapipe";
 /**
  * Per-target CTC scoring for the Learn screen.
  *
- * Unlike useStreamingTranscribe, this hook doesn't try to commit phrases
- * or maintain accumulated text. It just keeps a rolling ~2s window of
- * frames and re-decodes it on a timer, exposing the latest decoded
- * string so the caller can match it against a target letter.
+ * Keeps a rolling ~2s window of frames and re-decodes it on a timer,
+ * exposing the latest decoded string so the caller can match it against
+ * a target letter.
  *
  * The CTC model needs motion to disambiguate letters like J and Z, so
  * the rolling window covers ~2 seconds at 10 fps. Decode cadence is
@@ -28,10 +27,6 @@ interface FrameSample {
 export interface TargetedTranscribeResult {
   /** The most recent CTC decode of the rolling buffer. */
   latest: string;
-  /** Backend-reported decode latency, last call only. */
-  lastDecodeMs: number;
-  /** True while the underlying WebSocket is open. */
-  connected: boolean;
   /** True if the CTC model failed to load on the server side. */
   unavailable: boolean;
 }
@@ -45,8 +40,6 @@ export function useTargetedTranscribe(
   const decodeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [latest, setLatest] = useState("");
-  const [lastDecodeMs, setLastDecodeMs] = useState(0);
-  const [connected, setConnected] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
   const connect = useCallback(() => {
@@ -58,21 +51,15 @@ export function useTargetedTranscribe(
       return;
     }
     const ws = new WebSocket(WS_ENDPOINTS.transcribeStream);
-    ws.onopen = () => {
-      setConnected(true);
-      setUnavailable(false);
-    };
+    ws.onopen = () => setUnavailable(false);
     ws.onclose = () => {
-      setConnected(false);
       if (wsRef.current === ws) wsRef.current = null;
     };
-    ws.onerror = () => setConnected(false);
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.type === "result") {
           setLatest(data.text ?? "");
-          setLastDecodeMs(data.elapsed_ms ?? 0);
         } else if (data.type === "error") {
           // The backend sends this then closes if the CTC ONNX is missing.
           setUnavailable(true);
@@ -149,5 +136,5 @@ export function useTargetedTranscribe(
     };
   }, [active, connect, unavailable]);
 
-  return { latest, lastDecodeMs, connected, unavailable };
+  return { latest, unavailable };
 }

@@ -12,14 +12,8 @@ const FRAME_INTERVAL_MS = 100;
 /**
  * Shared MediaPipe producer. Initializes Hand/Pose/Face detectors once for
  * the page lifetime, runs them on every webcam frame, and exposes the
- * latest result to any number of consumer hooks.
- *
- * Returns:
- *   - detection:  React state, the latest detection (null until the
- *                 detectors finish loading and the first frame is processed).
- *   - latestRef:  a ref to the same value, for consumers that need to read
- *                 the freshest detection inside a callback without
- *                 re-triggering effects.
+ * latest detection as React state (null until the detectors finish loading
+ * and the first frame is processed).
  */
 export function useMediaPipe(
   videoRef: React.RefObject<HTMLVideoElement | null>,
@@ -27,7 +21,6 @@ export function useMediaPipe(
 ) {
   const detectorsRef = useRef<MediaPipeDetectors | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const latestRef = useRef<FrameDetection | null>(null);
   const [detection, setDetection] = useState<FrameDetection | null>(null);
 
   useEffect(() => {
@@ -54,7 +47,6 @@ export function useMediaPipe(
     if (!active) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
-      latestRef.current = null;
       setDetection(null);
       return;
     }
@@ -70,7 +62,6 @@ export function useMediaPipe(
       } catch {
         return;
       }
-      latestRef.current = result;
       setDetection(result);
     }, FRAME_INTERVAL_MS);
 
@@ -80,5 +71,5 @@ export function useMediaPipe(
     };
   }, [active, videoRef]);
 
-  return { detection, latestRef };
+  return { detection };
 }

@@ -32,8 +32,6 @@ describe("splitHands", () => {
     const out = splitHands(null);
     expect(out.leftHand).toBeNull();
     expect(out.rightHand).toBeNull();
-    expect(out.leftLabel).toBeNull();
-    expect(out.rightLabel).toBeNull();
   });
 
   it("returns all-nulls for an empty result", () => {
@@ -47,8 +45,6 @@ describe("splitHands", () => {
     const out = splitHands(makeResult([{ label: "Left", lms: leftLms }]));
     expect(out.leftHand).toBe(leftLms);
     expect(out.rightHand).toBeNull();
-    expect(out.leftLabel).toBe("Left");
-    expect(out.rightLabel).toBeNull();
   });
 
   it("places a right-labeled hand into the rightHand slot", () => {
