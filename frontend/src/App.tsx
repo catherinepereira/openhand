@@ -3,6 +3,7 @@ import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
 import { LearnPanel } from "./components/LearnPanel";
+import { WordsPanel } from "./components/WordsPanel";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
@@ -15,7 +16,7 @@ const SIGN_DEBOUNCE_MS = 800;
 // manual clear.
 const OUTPUT_MAX_CHARS = 30;
 
-type View = "home" | "learn";
+type View = "home" | "learn" | "words";
 
 export default function App() {
   const { videoRef, videoElementRef, status, error, start, stop } = useWebcam();
@@ -35,7 +36,12 @@ export default function App() {
     setView("learn");
   }, [isActive, start]);
 
-  const exitLearn = useCallback(() => setView("home"), []);
+  const enterWords = useCallback(async () => {
+    if (!isActive) await start();
+    setView("words");
+  }, [isActive, start]);
+
+  const exitToHome = useCallback(() => setView("home"), []);
 
   // Debounce detected letters into the accumulated output text.
   const lastSignRef = useRef<string>("-");
@@ -113,7 +119,7 @@ export default function App() {
             column (webcam + overlays) is identical in both views, so the
             <video> element and its MediaStream stay mounted. */}
         <div className="hero-left">
-          {view === "home" ? (
+          {view === "home" && (
             <>
               <div className="badge">OPEN SOURCE · REAL-TIME</div>
               <h1 className="hero-heading">
@@ -128,14 +134,23 @@ export default function App() {
                   {isActive ? "Stop camera" : "Start camera"}
                 </button>
                 <button className="btn-secondary" onClick={enterLearn}>Learn the signs</button>
+                <button className="btn-secondary" onClick={enterWords}>Learn the words</button>
               </div>
             </>
-          ) : (
+          )}
+          {view === "learn" && (
             <LearnPanel
               detection={liveResult}
               frameDetection={detection}
               active={isActive}
-              onExit={exitLearn}
+              onExit={exitToHome}
+            />
+          )}
+          {view === "words" && (
+            <WordsPanel
+              frameDetection={detection}
+              active={isActive}
+              onExit={exitToHome}
             />
           )}
         </div>

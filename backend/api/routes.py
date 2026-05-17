@@ -15,6 +15,8 @@ from ..models.schemas import (
 from ..services.classifier import SignClassifier
 from ..services.ctc_classifier import CTCClassifier
 from ..services.ctc_landmarks import N_FEATURES, N_LANDMARKS
+from ..services.sign_classifier import SignClassifier as WordClassifier
+from ..services.signs_landmarks import N_LANDMARKS as SIGNS_N_LANDMARKS
 from ..services.tts import text_to_speech
 
 router = APIRouter()
@@ -25,12 +27,22 @@ classifier = SignClassifier()
 # CTC ONNX is 116 MB; lazy-load on first transcribe call.
 _ctc: CTCClassifier | None = None
 
+# Word-level (isolated sign) classifier; ONNX is ~10-20 MB. Lazy-load.
+_words: WordClassifier | None = None
+
 
 def _get_ctc() -> CTCClassifier:
     global _ctc
     if _ctc is None:
         _ctc = CTCClassifier()
     return _ctc
+
+
+def _get_words() -> WordClassifier:
+    global _words
+    if _words is None:
+        _words = WordClassifier()
+    return _words
 
 
 @router.websocket("/ws/detect-landmarks")
@@ -135,6 +147,88 @@ async def transcribe_stream_ws(websocket: WebSocket):
         pass
 
 
+@router.websocket("/ws/classify-sign")
+async def classify_sign_ws(websocket: WebSocket):
+    """Isolated-sign classification (Google ISLR / "Words" path).
+
+    The browser sends classify messages with a rolling buffer of
+    127-landmark frames (+ missing mask). The route runs the trained
+    transformer on the clip and returns the top-K (sign, prob) pairs.
+
+    Wire format:
+      client -> server: {
+        "type": "classify",
+        "frame_count": int,
+        "landmarks": float[],   // flat T * 127 * 3, row-major
+        "missing":   bool[],    // flat T * 127, row-major
+        "top_k":     int        // optional, default 5
+      }
+      server -> client:
+        {"type": "result", "predictions": [["airplane", 0.81], ["alligator", 0.05], ...], "elapsed_ms": float}
+        {"type": "error",  "message": str}
+    """
+    await websocket.accept()
+    try:
+        words = _get_words()
+    except Exception as exc:
+        await websocket.send_text(
+            json.dumps({"type": "error", "message": f"Sign model load failed: {exc}"})
+        )
+        await websocket.close()
+        return
+
+    try:
+        while True:
+            payload = await websocket.receive_json()
+            if payload.get("type") != "classify":
+                continue
+            try:
+                T = int(payload["frame_count"])
+                landmarks = payload["landmarks"]
+                missing = payload["missing"]
+                top_k = int(payload.get("top_k", 5))
+            except (KeyError, TypeError, ValueError):
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": "bad payload"})
+                )
+                continue
+            if T == 0:
+                await websocket.send_text(
+                    json.dumps({"type": "result", "predictions": [], "elapsed_ms": 0.0})
+                )
+                continue
+            expected_lm = T * SIGNS_N_LANDMARKS * 3
+            expected_miss = T * SIGNS_N_LANDMARKS
+            if len(landmarks) != expected_lm or len(missing) != expected_miss:
+                await websocket.send_text(
+                    json.dumps({
+                        "type": "error",
+                        "message": (
+                            f"length mismatch: expected landmarks={expected_lm} "
+                            f"missing={expected_miss}, got "
+                            f"landmarks={len(landmarks)} missing={len(missing)}"
+                        ),
+                    })
+                )
+                continue
+
+            arr = np.array(landmarks, dtype=np.float32).reshape(T, SIGNS_N_LANDMARKS, 3)
+            miss = np.array(missing, dtype=bool).reshape(T, SIGNS_N_LANDMARKS)
+
+            t0 = time.perf_counter()
+            predictions = await asyncio.to_thread(words.classify, arr, miss, top_k)
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            await websocket.send_text(
+                json.dumps({
+                    "type": "result",
+                    "predictions": predictions,
+                    "elapsed_ms": elapsed_ms,
+                })
+            )
+    except WebSocketDisconnect:
+        pass
+
+
 @router.post("/api/tts")
 async def tts_endpoint(req: TTSRequest):
     audio = await text_to_speech(req.text, req.voice_id or "21m00Tcm4TlvDq8ikWAM")
@@ -175,6 +269,48 @@ async def reference_landmarks():
         with open(_REFERENCE_PATH) as f:
             _reference_cache = json.load(f)
     return _reference_cache
+
+
+_SIGN_REFERENCES_PATH = (
+    Path(__file__).resolve().parent.parent / "models" / "artifacts" / "sign_references.json"
+)
+_sign_refs_cache: dict | None = None
+
+
+@router.get("/api/sign-references")
+async def sign_references():
+    """Return the per-sign medoid-clip landmark sequences for the
+    Learn-the-words 3D animated reference.
+
+    Payload:
+      {
+        "n_landmarks": 127,
+        "n_coords": 3,
+        "sign_to_idx": {...},
+        "signs": {
+          "airplane": {
+            "label": 0,
+            "n_frames": 47,
+            "landmarks": [...flat T*127*3...],
+            "missing":   [...flat T*127...]
+          },
+          ...
+        }
+      }
+    """
+    global _sign_refs_cache
+    if _sign_refs_cache is None:
+        if not _SIGN_REFERENCES_PATH.exists():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"sign_references.json not found at {_SIGN_REFERENCES_PATH}. "
+                    "Generate via openhand-model/scripts/build_sign_references.py."
+                ),
+            )
+        with open(_SIGN_REFERENCES_PATH) as f:
+            _sign_refs_cache = json.load(f)
+    return _sign_refs_cache
 
 
 @router.get("/api/health")

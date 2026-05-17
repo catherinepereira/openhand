@@ -39,7 +39,6 @@ export function useSignDetection(
     confidence: 0,
     hands: [],
   });
-  const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
     const existing = wsRef.current;
@@ -50,12 +49,9 @@ export function useSignDetection(
       return;
     }
     const ws = new WebSocket(WS_ENDPOINTS.detect);
-    ws.onopen = () => setConnected(true);
     ws.onclose = () => {
-      setConnected(false);
       if (wsRef.current === ws) wsRef.current = null;
     };
-    ws.onerror = () => setConnected(false);
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -121,5 +117,5 @@ export function useSignDetection(
     wsRef.current.send(JSON.stringify({ hands }));
   }, [detection, active, connect]);
 
-  return { result, connected };
+  return { result };
 }
