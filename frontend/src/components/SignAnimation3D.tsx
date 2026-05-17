@@ -170,12 +170,14 @@ function Scene({
     }
   });
 
-  const current = framesData[frameIdx];
-  if (!current) return null;
+  // Clamp frameIdx into range so this stays defined when framesData changes
+  // (e.g. switching to a shorter clip). All hooks must run unconditionally.
+  const safeIdx = T > 0 ? Math.min(frameIdx, T - 1) : 0;
+  const current = framesData[safeIdx];
 
   // Apply the stable anchor offset to every point this frame.
   const shifted = useMemo(
-    () => current.points.map((p) => p.clone().sub(anchor)),
+    () => current ? current.points.map((p) => p.clone().sub(anchor)) : [],
     [current, anchor],
   );
 
@@ -185,6 +187,8 @@ function Scene({
     camera.position.set(0, 0, 4);
     camera.lookAt(0, 0, 0);
   }, [camera]);
+
+  if (!current) return null;
 
   return (
     <group>
