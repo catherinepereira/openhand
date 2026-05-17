@@ -54,7 +54,6 @@ export function WordsPanel({ frameDetection, active, onExit }: Props) {
   const [target, setTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  // Live classifier output (rolling buffer + per-tick top-K).
   const { predictions, unavailable } = useWordDetection(frameDetection, active);
 
   useEffect(() => {
@@ -67,7 +66,6 @@ export function WordsPanel({ frameDetection, active, onExit }: Props) {
       .then((data: ReferencesPayload) => {
         if (cancelled) return;
         setRefs(data);
-        // Pick a default target the first time we land here.
         const names = Object.keys(data.signs).sort();
         if (names.length > 0) setTarget(names[0]);
       })
@@ -99,24 +97,29 @@ export function WordsPanel({ frameDetection, active, onExit }: Props) {
   }, [target, predictions, unavailable]);
 
   return (
-    <div className="learn-panel-col">
-      <div className="learn-panel-header">
-        <button className="btn-launch" onClick={onExit}>← Back</button>
-        <h2 className="learn-title">Learn the words</h2>
+    <div className="flex w-full min-w-0 flex-col gap-4">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onExit}
+          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
+        >
+          ← Back
+        </button>
+        <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the words</h2>
       </div>
 
-      <div className="reference-block">
-        <div className="learn-panel-label">
-          REFERENCE - {target ?? "..."}
-        </div>
-        <div className="learn-3d-wrap">
+      <div className="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-border-app bg-bg px-4 py-[0.85rem]">
+        <div className="label-caps text-[0.7rem]">REFERENCE - {target ?? "..."}</div>
+        <div className="relative h-[420px] overflow-hidden rounded-xl bg-surface max-[700px]:h-[300px]">
           {refsError && (
-            <div className="learn-error">
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-[#b14242]">
               Could not load references: {refsError}
             </div>
           )}
           {!refs && !refsError && (
-            <div className="learn-loading">Loading sign references...</div>
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-muted">
+              Loading sign references...
+            </div>
           )}
           {targetClip && (
             <SignAnimation3D
@@ -130,37 +133,47 @@ export function WordsPanel({ frameDetection, active, onExit }: Props) {
 
       <input
         type="search"
-        className="word-search"
         placeholder="Search 250 signs..."
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
+        className="w-full rounded-lg border-[1.5px] border-border-app bg-bg px-[0.8rem] py-[0.55rem] font-sans text-[0.9rem] text-ink outline-none transition-colors focus:border-ink"
       />
 
-      <div className="word-list">
-        {filtered.map((sign) => (
-          <button
-            key={sign}
-            className={`word-tile ${sign === target ? "selected" : ""}`}
-            onClick={() => setTarget(sign)}
-          >
-            {sign}
-          </button>
-        ))}
+      <div className="grid max-h-[220px] grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-[0.35rem] overflow-y-auto rounded-[10px] border-[1.5px] border-border-app bg-bg p-1">
+        {filtered.map((sign) => {
+          const selected = sign === target;
+          return (
+            <button
+              key={sign}
+              onClick={() => setTarget(sign)}
+              className={[
+                "min-h-[2.2rem] rounded-md border px-[0.7rem] py-2 text-left text-[0.85rem] font-medium leading-tight transition-colors active:scale-[0.97] [word-break:break-word]",
+                selected
+                  ? "border-ink bg-ink text-white"
+                  : "border-border-app bg-bg text-ink hover:bg-surface",
+              ].join(" ")}
+            >
+              {sign}
+            </button>
+          );
+        })}
         {filtered.length === 0 && (
-          <div className="word-list-empty">No signs match "{filter}"</div>
+          <div className="col-span-full p-6 text-center text-[0.85rem] text-muted">
+            No signs match "{filter}"
+          </div>
         )}
       </div>
 
       <div
-        className="grade-bar"
+        className="flex items-center gap-[0.7rem] rounded-[10px] border-[1.5px] bg-bg px-4 py-[0.8rem] transition-colors"
         style={{ borderColor: GRADE_COLOR[grade] }}
       >
         <span
-          className="grade-dot"
+          className="h-3 w-3 shrink-0 rounded-full transition-colors"
           style={{ background: GRADE_COLOR[grade] }}
         />
-        <span className="grade-label">{GRADE_LABEL[grade]}</span>
-        <span className="grade-detail">
+        <span className="text-[0.95rem] font-semibold">{GRADE_LABEL[grade]}</span>
+        <span className="ml-auto text-[0.85rem] text-muted">
           {unavailable
             ? "Sign model unavailable"
             : predictions[0]

@@ -3,14 +3,10 @@ import { HandIcon } from "./icons";
 import type { DetectedHand } from "../hooks/useSignDetection";
 
 interface Props {
-  /** Callback ref from useWebcam. Pass straight to the <video ref={...}>. */
   videoRef: (el: HTMLVideoElement | null) => void;
   status: "idle" | "requesting" | "active" | "error";
   error: string | null;
-  /** Every visible hand, tagged with handedness, in MediaPipe normalized
-   *  coords (x, y in [0,1] of the raw unmirrored frame). */
   hands: DetectedHand[];
-  /** Whether the skeleton overlay is drawn. Controlled by parent. */
   showSkeleton: boolean;
   onShowSkeletonChange: (next: boolean) => void;
 }
@@ -22,13 +18,19 @@ const STATUS_LABEL: Record<string, string> = {
   error: "Camera error",
 };
 
-// MediaPipe hand connections: pairs of landmark indices forming bones.
+const STATUS_DOT: Record<string, string> = {
+  idle: "bg-muted",
+  requesting: "bg-amber-500",
+  active: "bg-green-500",
+  error: "bg-red-500",
+};
+
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
-  [0, 1], [1, 2], [2, 3], [3, 4],                  // Thumb
-  [0, 5], [5, 6], [6, 7], [7, 8],                  // Index
-  [5, 9], [9, 10], [10, 11], [11, 12],             // Middle
-  [9, 13], [13, 14], [14, 15], [15, 16],           // Ring
-  [13, 17], [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16],
+  [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
 ];
 
 const BONE_COLOR = "rgba(60, 130, 240, 0.85)";
@@ -44,8 +46,6 @@ function drawHand(
 ) {
   if (hand.landmarks.length !== 21) return;
 
-  // MediaPipe coords are raw-video (unmirrored). The displayed video has
-  // CSS scaleX(-1), so flip x to align the overlay with the mirrored visual.
   const points = hand.landmarks.map((lm) => ({
     x: (1 - lm.x) * canvasW,
     y: lm.y * canvasH,
@@ -71,7 +71,6 @@ function drawHand(
     ctx.stroke();
   }
 
-  // Handedness label near the wrist (only when we have a confident label).
   if (hand.handedness) {
     const wrist = points[0];
     ctx.font = "12px system-ui, sans-serif";
@@ -98,9 +97,6 @@ export function WebcamFeed({
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const videoEl = useRef<HTMLVideoElement | null>(null);
 
-  // Forwarding ref callback: keep a local handle for sizing the overlay
-  // canvas, and pass the element up to the parent's useWebcam callback
-  // so the stream gets attached.
   const setVideo = (el: HTMLVideoElement | null) => {
     videoEl.current = el;
     videoRef(el);
@@ -117,9 +113,6 @@ export function WebcamFeed({
     const videoH = video?.videoHeight ?? 0;
     if (videoW === 0 || videoH === 0) return;
 
-    // Match canvas backing buffer to the video stream's native resolution.
-    // MediaPipe x/y are normalized to source frame size; CSS scales the
-    // canvas display rect down to share the same box as the video.
     if (canvas.width !== videoW) canvas.width = videoW;
     if (canvas.height !== videoH) canvas.height = videoH;
 
@@ -129,10 +122,10 @@ export function WebcamFeed({
   }, [hands]);
 
   return (
-    <div className="webcam-wrap">
-      <div className="webcam-frame">
+    <div className="flex w-full flex-col items-center gap-3">
+      <div className="relative flex aspect-[4/3] w-[min(760px,96%)] items-center justify-center overflow-hidden rounded-3xl border border-border-app bg-surface shadow-[0_2px_16px_rgba(0,0,0,0.05)]">
         {status !== "active" && (
-          <div className="webcam-placeholder">
+          <div className="absolute inset-0 flex items-center justify-center">
             <HandIcon />
           </div>
         )}
@@ -140,28 +133,34 @@ export function WebcamFeed({
           ref={setVideo}
           playsInline
           muted
-          className={`webcam-video ${status === "active" ? "visible" : ""}`}
+          className={`absolute inset-0 h-full w-full object-fill transition-opacity duration-300 [transform:scaleX(-1)] ${status === "active" ? "opacity-100" : "opacity-0"}`}
         />
-        <canvas ref={overlayRef} className="webcam-overlay" />
+        <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" />
 
         {status === "active" && (
-          <label className="skeleton-toggle">
-            <span className="skeleton-toggle-label">Skeleton</span>
-            <span className="switch">
+          <label className="absolute top-3 right-3 z-10 inline-flex cursor-pointer select-none items-center gap-[0.55rem] rounded-full bg-black/55 px-[0.65rem] py-[0.4rem] text-[0.78rem] font-medium text-white backdrop-blur-md">
+            <span className="leading-none">Skeleton</span>
+            <span className="relative inline-block h-4 w-[30px]">
               <input
                 type="checkbox"
                 checked={showSkeleton}
                 onChange={(e) => onShowSkeletonChange(e.target.checked)}
+                className="peer absolute inset-0 z-10 m-0 cursor-pointer opacity-0"
               />
-              <span className="switch-track" aria-hidden="true">
-                <span className="switch-thumb" />
-              </span>
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full bg-white/30 transition-colors peer-checked:bg-blue-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white/70"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute left-[2px] top-[2px] h-3 w-3 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform peer-checked:translate-x-[14px]"
+              />
             </span>
           </label>
         )}
       </div>
-      <p className="webcam-status">
-        <span className={`status-dot ${status}`} />
+      <p className="flex items-center gap-[0.4rem] text-[0.82rem] text-muted">
+        <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${STATUS_DOT[status]}`} />
         {error ?? STATUS_LABEL[status]}
       </p>
     </div>

@@ -7,14 +7,6 @@ import { HandModel3D } from "./HandModel3D";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-/**
- * Letters where the static-frame classifier can't disambiguate because
- * the sign is defined by motion (not just handshape). For these we score
- * against the CTC model's decoded text instead of the per-frame argmax.
- *
- * J is "I + drop-and-hook"; Z is "D-finger + trace a Z". The static
- * frames look like I and D respectively.
- */
 const MOTION_LETTERS = new Set(["J", "Z"]);
 
 interface ReferencePayload {
@@ -27,23 +19,12 @@ interface ReferencePayload {
 type Grade = "green" | "yellow" | "red" | "none";
 
 interface Props {
-  /** Live classifier output (per-frame argmax + confidence). */
   detection: DetectionResult;
-  /** Raw MediaPipe output, needed for CTC scoring on motion letters. */
   frameDetection: FrameDetection | null;
   active: boolean;
   onExit: () => void;
 }
 
-/**
- * Static-frame grading via the alphabet MLP. If the classifier's argmax
- * matches the target, its confidence number directly tells us how close
- * the user is. If the argmax is a different letter, we grade red.
- *
- * Thresholds are loose-ish (0.85 / 0.5) so a correctly-formed sign sits
- * comfortably in green; the alphabet model averages ~0.95+ confidence on
- * its test set, so we have headroom.
- */
 function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
   if (detection.hands.length === 0) return "none";
   if (detection.sign === "-") return "red";
@@ -53,12 +34,6 @@ function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
   return "red";
 }
 
-/**
- * CTC-based grading for motion letters. The decoded string from the
- * rolling 2-second window will contain garbage between meaningful gestures
- * (the CTC model was trained on continuous fingerspelling, not isolated
- * letters), so we look for the target letter anywhere in the decode.
- */
 function gradeMotion(
   targetLetter: string,
   detection: DetectionResult,
@@ -86,18 +61,12 @@ const GRADE_COLOR: Record<Grade, string> = {
   none: "#888",
 };
 
-/**
- * Left-column panel for the Learn view. Renders alongside the persistent
- * webcam feed in the hero layout, so the camera doesn't have to remount
- * when entering/leaving Learn mode.
- */
 export function LearnPanel({ detection, frameDetection, active, onExit }: Props) {
   const [refs, setRefs] = useState<ReferencePayload | null>(null);
   const [refsError, setRefsError] = useState<string | null>(null);
   const [target, setTarget] = useState<string>("A");
 
   const isMotion = MOTION_LETTERS.has(target);
-  // CTC decode for motion letters only.
   const ctc = useTargetedTranscribe(frameDetection, active && isMotion);
 
   useEffect(() => {
@@ -134,38 +103,52 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
   }, [isMotion, target, detection, ctc.latest, ctc.unavailable]);
 
   return (
-    <div className="learn-panel-col">
-      <div className="learn-panel-header">
-        <button className="btn-launch" onClick={onExit}>← Back</button>
-        <h2 className="learn-title">Learn the signs</h2>
+    <div className="flex w-full min-w-0 flex-col gap-4">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onExit}
+          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
+        >
+          ← Back
+        </button>
+        <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the signs</h2>
       </div>
 
-      <div className="reference-block">
-        <div className="learn-panel-label">REFERENCE - {target}</div>
-        <div className="learn-3d-wrap">
+      <div className="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-border-app bg-bg px-4 py-[0.85rem]">
+        <div className="label-caps text-[0.7rem]">REFERENCE - {target}</div>
+        <div className="relative h-[420px] overflow-hidden rounded-xl bg-surface max-[700px]:h-[300px]">
           {refsError && (
-            <div className="learn-error">
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-[#b14242]">
               Could not load reference: {refsError}
             </div>
           )}
           {!refs && !refsError && (
-            <div className="learn-loading">Loading reference poses...</div>
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-muted">
+              Loading reference poses...
+            </div>
           )}
-          {targetLandmarks && (
-            <HandModel3D landmarks={targetLandmarks} />
-          )}
+          {targetLandmarks && <HandModel3D landmarks={targetLandmarks} />}
         </div>
       </div>
 
-      <div className="letter-grid">
+      <div className="grid w-full grid-cols-[repeat(13,1fr)] gap-[0.3rem] max-[1100px]:grid-cols-[repeat(9,1fr)] max-[700px]:grid-cols-[repeat(7,1fr)]">
         {LETTERS.map((l) => {
           const available = refs?.letters[l] !== undefined;
+          const selected = l === target;
           return (
             <button
               key={l}
-              className={`letter-tile ${l === target ? "selected" : ""} ${available ? "" : "disabled"}`}
               onClick={() => available && setTarget(l)}
               disabled={!available}
+              className={[
+                "aspect-square rounded-[7px] border-[1.5px] text-[0.9rem] font-semibold transition-colors active:enabled:scale-95",
+                selected
+                  ? "border-ink bg-ink text-white"
+                  : "border-border-app bg-bg text-ink hover:enabled:bg-surface",
+                !available && "cursor-not-allowed opacity-35",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               {l}
             </button>
@@ -174,16 +157,16 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
       </div>
 
       <div
-        className="grade-bar"
+        className="flex items-center gap-[0.7rem] rounded-[10px] border-[1.5px] bg-bg px-4 py-[0.8rem] transition-colors"
         style={{ borderColor: GRADE_COLOR[grade] }}
       >
         <span
-          className="grade-dot"
+          className="h-3 w-3 shrink-0 rounded-full transition-colors"
           style={{ background: GRADE_COLOR[grade] }}
         />
-        <span className="grade-label">{GRADE_LABEL[grade]}</span>
+        <span className="text-[0.95rem] font-semibold">{GRADE_LABEL[grade]}</span>
         {isMotion ? (
-          <span className="grade-detail">
+          <span className="ml-auto text-[0.85rem] text-muted">
             {ctc.unavailable
               ? "CTC model unavailable"
               : detection.hands.length === 0
@@ -194,7 +177,7 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
           </span>
         ) : (
           grade !== "none" && detection.sign !== "-" && (
-            <span className="grade-detail">
+            <span className="ml-auto text-[0.85rem] text-muted">
               detected <strong>{detection.sign}</strong>
               {" "}({Math.round(detection.confidence * 100)}%)
             </span>
@@ -203,7 +186,7 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
       </div>
 
       {isMotion && (
-        <p className="learn-hint">
+        <p className="px-1 text-[0.82rem] leading-relaxed text-muted">
           {target} is a motion sign. Trace the letter in front of the
           camera; we score on the CTC model's decode of the last ~2 seconds.
         </p>

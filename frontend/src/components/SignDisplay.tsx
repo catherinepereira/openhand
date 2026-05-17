@@ -34,14 +34,14 @@ export function SignDisplay({ sign, confidence }: Props) {
   const pct = displayConfidence > 0 ? `${Math.round(displayConfidence * 100)}%` : "-";
 
   return (
-    <div className="sign-display-row">
-      <div className="stat-card">
-        <span className="stat-label">DETECTED</span>
-        <span className="stat-value">{sign}</span>
+    <div className="flex w-full max-w-[360px] gap-3">
+      <div className="flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] border-border-app bg-bg px-[1.2rem] py-4">
+        <span className="label-caps">DETECTED</span>
+        <span className="text-[1.6rem] font-light tracking-tight text-ink">{sign}</span>
       </div>
-      <div className="stat-card">
-        <span className="stat-label">CONFIDENCE</span>
-        <span className="stat-value">{pct}</span>
+      <div className="flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] border-border-app bg-bg px-[1.2rem] py-4">
+        <span className="label-caps">CONFIDENCE</span>
+        <span className="text-[1.6rem] font-light tracking-tight text-ink">{pct}</span>
       </div>
     </div>
   );

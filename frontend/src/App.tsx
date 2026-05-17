@@ -11,9 +11,6 @@ import { HTTP_ENDPOINTS } from "./config";
 import "./App.css";
 
 const SIGN_DEBOUNCE_MS = 800;
-// Sliding-window cap on the accumulated output. Older letters scroll off
-// the front so the bar stays a reasonable length without ever needing a
-// manual clear.
 const OUTPUT_MAX_CHARS = 30;
 
 type View = "home" | "learn" | "words";
@@ -43,7 +40,6 @@ export default function App() {
 
   const exitToHome = useCallback(() => setView("home"), []);
 
-  // Debounce detected letters into the accumulated output text.
   const lastSignRef = useRef<string>("-");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -94,47 +90,62 @@ export default function App() {
   }, [outputText, speaking]);
 
   return (
-    <div className="app">
-      <header className="nav">
-        <div className="nav-logo">OpenHand <span>🤟</span></div>
-        <nav className="nav-links">
+    <div className="flex min-h-screen flex-col">
+      <header className="flex h-16 items-center gap-8 border-b border-border-app bg-bg px-10 max-[700px]:px-5">
+        <div className="text-[1.05rem] font-semibold tracking-tight whitespace-nowrap">
+          OpenHand <span>🤟</span>
+        </div>
+        <nav className="flex flex-1 justify-center gap-6 text-sm text-muted max-[700px]:hidden">
           <a
             href="https://github.com/catherinepereira/openhand"
             target="_blank"
             rel="noreferrer noopener"
+            className="hover:text-ink"
           >
             GitHub
           </a>
         </nav>
         <button
-          className="btn-launch"
           onClick={isActive ? stop : start}
+          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
         >
           {isActive ? "Stop" : "Launch app"}
         </button>
       </header>
 
-      <main className="hero">
-        {/* Left column swaps content based on the current view. The right
-            column (webcam + overlays) is identical in both views, so the
-            <video> element and its MediaStream stay mounted. */}
-        <div className="hero-left">
+      <main className="grid flex-1 grid-cols-2 border-b border-border-app max-[700px]:grid-cols-1">
+        <div className="flex flex-col gap-6 border-r border-border-app px-12 pt-16 pb-12 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app max-[700px]:px-6 max-[700px]:py-10">
           {view === "home" && (
             <>
-              <div className="badge">OPEN SOURCE · REAL-TIME</div>
-              <h1 className="hero-heading">
+              <div className="inline-flex w-fit items-center rounded-full border-[1.5px] border-border-app px-3 py-[0.35rem] text-[0.72rem] font-semibold tracking-widest text-muted">
+                OPEN SOURCE · REAL-TIME
+              </div>
+              <h1 className="text-[clamp(2.4rem,4vw,3.2rem)] font-normal leading-[1.1] tracking-tight">
                 Sign language,<br />
-                <strong>to speech.</strong>
+                <strong className="font-bold">to speech.</strong>
               </h1>
-              <p className="hero-sub">
+              <p className="max-w-[38ch] text-[0.95rem] leading-[1.65] text-[#555]">
                 OpenHand detects signs as you make them and converts to text and speech in real time.
               </p>
-              <div className="hero-ctas">
-                <button className="btn-primary" onClick={isActive ? stop : start}>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={isActive ? stop : start}
+                  className="rounded-[9px] bg-ink px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium text-white transition-opacity hover:opacity-80"
+                >
                   {isActive ? "Stop camera" : "Start camera"}
                 </button>
-                <button className="btn-secondary" onClick={enterLearn}>Learn the signs</button>
-                <button className="btn-secondary" onClick={enterWords}>Learn the words</button>
+                <button
+                  onClick={enterLearn}
+                  className="rounded-[9px] border-[1.5px] border-border-app bg-bg px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors hover:bg-surface"
+                >
+                  Learn the signs
+                </button>
+                <button
+                  onClick={enterWords}
+                  className="rounded-[9px] border-[1.5px] border-border-app bg-bg px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors hover:bg-surface"
+                >
+                  Learn the words
+                </button>
               </div>
             </>
           )}
@@ -155,7 +166,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="hero-right">
+        <div className="flex flex-col items-center justify-center gap-6 bg-bg px-8 py-12 max-[700px]:px-6 max-[700px]:py-8">
           <WebcamFeed
             videoRef={videoRef}
             status={status}
@@ -179,18 +190,18 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="info-strip">
-        <div className="info-block">
-          <span className="info-label">DETECTION</span>
-          <span className="info-value">MediaPipe Hand Landmarks (JS)</span>
+      <footer className="mt-auto grid grid-cols-3 border-t border-border-app max-[700px]:grid-cols-1">
+        <div className="flex flex-col gap-[0.3rem] border-r border-border-app px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app">
+          <span className="label-caps">DETECTION</span>
+          <span className="text-[0.95rem] font-medium text-ink">MediaPipe Hand Landmarks (JS)</span>
         </div>
-        <div className="info-block">
-          <span className="info-label">CLASSIFICATION</span>
-          <span className="info-value">MLP (per sign) and CTC (phrase transcription)</span>
+        <div className="flex flex-col gap-[0.3rem] border-r border-border-app px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app">
+          <span className="label-caps">CLASSIFICATION</span>
+          <span className="text-[0.95rem] font-medium text-ink">MLP (per sign) and CTC (phrase transcription)</span>
         </div>
-        <div className="info-block">
-          <span className="info-label">OUTPUT</span>
-          <span className="info-value">TTS (ElevenLabs)</span>
+        <div className="flex flex-col gap-[0.3rem] px-10 py-[1.4rem]">
+          <span className="label-caps">OUTPUT</span>
+          <span className="text-[0.95rem] font-medium text-ink">TTS (ElevenLabs)</span>
         </div>
       </footer>
     </div>
