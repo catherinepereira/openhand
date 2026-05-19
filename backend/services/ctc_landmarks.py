@@ -1,7 +1,7 @@
 """
 Landmark selection for the CTC fingerspelling model.
 
-MUST stay in sync with openhand-model/model/landmarks.py. This is a deliberate
+MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py. This is a deliberate
 copy (the backend doesn't import from the training repo). The index lists,
 group order, and normalize_sequence body must match exactly; drift means the
 deployed CTC ONNX silently sees inputs in the wrong format and produces garbage.
@@ -91,7 +91,7 @@ def build_frame_features(
 
 
 def normalize_sequence(arr: np.ndarray, missing: np.ndarray) -> np.ndarray:
-    """Match openhand-model/model/landmarks.py::normalize_sequence.
+    """Match openhand-model/fingerspelling/model/landmarks.py::normalize_sequence.
 
     arr:     (T, N_FEATURES) float32, already NaN-filled with 0.
     missing: (T, N_LANDMARKS) bool, True where landmark was absent.

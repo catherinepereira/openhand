@@ -1,7 +1,7 @@
 """
 Landmark selection + engineered features for the isolated-sign classifier.
 
-MUST stay in sync with openhand-model/model/signs_landmarks.py. Same
+MUST stay in sync with openhand-model/signs/model/signs_landmarks.py. Same
 file, intentional duplicate so the backend doesn't import from the
 training repo. Drift here means the deployed model silently sees inputs
 in the wrong format.

@@ -22,7 +22,7 @@ pip install -q -r "$PSScriptRoot\backend\requirements.txt"
 $ctc = "$PSScriptRoot\backend\models\artifacts\asl_ctc.onnx"
 if (-not (Test-Path $ctc)) {
     Write-Warning "CTC model not found at $ctc"
-    Write-Warning "The phrase-transcribe path won't work until you copy it from openhand-model/exports/ctc/."
+    Write-Warning "The phrase-transcribe path won't work until you copy it from openhand-model/fingerspelling/exports/."
 }
 
 # Run from the repo root so the package import path resolves.

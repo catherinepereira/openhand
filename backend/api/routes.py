@@ -305,7 +305,7 @@ async def sign_references():
                 status_code=503,
                 detail=(
                     f"sign_references.json not found at {_SIGN_REFERENCES_PATH}. "
-                    "Generate via openhand-model/scripts/build_sign_references.py."
+                    "Generate via openhand-model/signs/scripts/build_sign_references.py."
                 ),
             )
         with open(_SIGN_REFERENCES_PATH) as f:

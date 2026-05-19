@@ -70,31 +70,31 @@ lives under `backend/models/artifacts/` (gitignored).
 
 | File | Size | Required? | Source |
 |------|------|-----------|--------|
-| `asl_classifier.onnx` | ~250 KB | yes | `openhand-model/scripts/train.py` + `export_onnx.py` |
+| `asl_classifier.onnx` | ~250 KB | yes | `openhand-model/alphabet/scripts/run_pipeline.py` |
 | `model_meta.json` | ~1 KB | yes | written by `train.py` |
-| `reference_landmarks.json` | ~35 KB | yes (Learn signs) | `openhand-model/scripts/build_reference_landmarks.py` |
-| `asl_ctc.onnx` | ~116 MB | optional (phrase + Learn J/Z) | `openhand-model/scripts/train_ctc.py` + `export_ctc_onnx.py` |
+| `reference_landmarks.json` | ~35 KB | yes (Learn signs) | `openhand-model/alphabet/scripts/build_reference_landmarks.py` |
+| `asl_ctc.onnx` | ~116 MB | optional (phrase + Learn J/Z) | `openhand-model/fingerspelling/scripts/run_pipeline.py` |
 | `asl_ctc_meta.json` | ~15 KB | optional | written by `train_ctc.py` |
-| `sign_classifier.onnx` | ~10-20 MB | optional (Learn the words) | `openhand-model/scripts/train_signs.py` + `export_signs_onnx.py` |
+| `sign_classifier.onnx` | ~10-20 MB | optional (Learn the words) | `openhand-model/signs/scripts/run_pipeline.py` |
 | `sign_classifier_meta.json` | ~10 KB | optional | written by `train_signs.py` (rename `model_meta.json`) |
-| `sign_references.json` | ~30-60 MB | optional | `openhand-model/scripts/build_sign_references.py` |
+| `sign_references.json` | ~30-60 MB | optional | `openhand-model/signs/scripts/build_sign_references.py` |
 
 Once the model repo has produced its artifacts, copy them over:
 
 ```powershell
 # Alphabet path + Learn-the-signs
-copy ..\openhand-model\exports\asl_classifier.onnx       backend\models\artifacts\
-copy ..\openhand-model\exports\model_meta.json           backend\models\artifacts\
-copy ..\openhand-model\exports\reference_landmarks.json  backend\models\artifacts\
+copy ..\openhand-model\alphabet\exports\asl_classifier.onnx       backend\models\artifacts\
+copy ..\openhand-model\alphabet\exports\model_meta.json           backend\models\artifacts\
+copy ..\openhand-model\alphabet\exports\reference_landmarks.json  backend\models\artifacts\
 
 # CTC (optional; needed for J/Z Learn grading + future phrase view)
-copy ..\openhand-model\exports\ctc\asl_ctc.onnx          backend\models\artifacts\
-copy ..\openhand-model\exports\ctc\model_meta.json       backend\models\artifacts\asl_ctc_meta.json
+copy ..\openhand-model\fingerspelling\exports\asl_ctc.onnx     backend\models\artifacts\
+copy ..\openhand-model\fingerspelling\exports\model_meta.json  backend\models\artifacts\asl_ctc_meta.json
 
 # Words / isolated signs (optional; needed for Learn-the-words)
-copy ..\openhand-model\exports\signs\sign_classifier.onnx  backend\models\artifacts\
-copy ..\openhand-model\exports\signs\model_meta.json       backend\models\artifacts\sign_classifier_meta.json
-copy ..\openhand-model\exports\signs\sign_references.json  backend\models\artifacts\
+copy ..\openhand-model\signs\exports\sign_classifier.onnx  backend\models\artifacts\
+copy ..\openhand-model\signs\exports\model_meta.json       backend\models\artifacts\sign_classifier_meta.json
+copy ..\openhand-model\signs\exports\sign_references.json  backend\models\artifacts\
 ```
 
 Without the word artifacts, the "Learn the words" view shows a clear

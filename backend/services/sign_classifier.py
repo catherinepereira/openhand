@@ -39,8 +39,8 @@ class SignClassifier:
         if not _ONNX.exists():
             raise FileNotFoundError(
                 f"Sign classifier ONNX not found at {_ONNX}. "
-                "Train it via openhand-model/scripts/train_signs.py + "
-                "export_signs_onnx.py, then copy the artifacts here."
+                "Train it via openhand-model/signs/scripts/run_pipeline.py, "
+                "then copy the artifacts here."
             )
         with open(_META) as f:
             meta = json.load(f)

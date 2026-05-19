@@ -39,7 +39,7 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
 
 
 def _normalize(vec: np.ndarray) -> np.ndarray:
-    """Match openhand-model/scripts/preprocess_alphabet.py::normalize.
+    """Match openhand-model/alphabet/scripts/preprocess_alphabet.py::normalize.
 
     Subtracts the wrist (landmark 0) so the hand is anchored at the origin,
     then scales so the 95th-percentile absolute coordinate is 1.

@@ -2,7 +2,7 @@
  * 127-landmark selection for the CTC fingerspelling and isolated-sign
  * models.
  *
- * MUST stay in sync with openhand-model/model/landmarks.py and
+ * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py and
  * openhand/backend/services/ctc_landmarks.py. The CTC ONNX has no idea what
  * any of these slots mean; if the order here drifts from training time,
  * the model silently produces nonsense.
