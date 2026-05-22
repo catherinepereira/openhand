@@ -1,22 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WS_ENDPOINTS } from "../config";
-import { FRAME_FEATURES, FRAME_LANDMARKS, buildFrameFeatures } from "../lib/landmarks";
+import { FRAME_FEATURES, FRAME_LANDMARKS, GROUP_OFFSETS, GROUP_SIZES, buildFrameFeatures } from "../lib/landmarks";
 import type { FrameDetection } from "../lib/mediapipe";
+
+function hasHand(missing: Uint8Array): boolean {
+  // Hand-present = at least one non-missing landmark in either hand group.
+  // The CTC model learned to read fingerspelling from the hands; sending a
+  // frame with both hands absent feeds it pure noise and produces spurious
+  // decodes.
+  const lh = GROUP_OFFSETS.leftHand;
+  const rh = GROUP_OFFSETS.rightHand;
+  for (let i = 0; i < GROUP_SIZES.leftHand; i++) {
+    if (missing[lh + i] === 0) return true;
+  }
+  for (let i = 0; i < GROUP_SIZES.rightHand; i++) {
+    if (missing[rh + i] === 0) return true;
+  }
+  return false;
+}
 
 /**
  * Per-target CTC scoring for the Learn screen.
  *
- * Keeps a rolling ~2s window of frames and re-decodes it on a timer,
- * exposing the latest decoded string so the caller can match it against
- * a target letter.
+ * Keeps a rolling ~4s window of frames and re-decodes it on a timer,
+ * exposing the latest decoded string. 4s covers most short fingerspelled
+ * words end-to-end, which matters because the CTC model is trained on
+ * whole sequences; a 2s slice catches mid-word and decodes badly.
  *
- * The CTC model needs motion to disambiguate letters like J and Z, so
- * the rolling window covers ~2 seconds at 10 fps. Decode cadence is
- * 600ms which keeps feedback snappy without saturating CPU.
+ * Decode cadence of 900ms is below the buffer length, so each tick
+ * mostly re-decodes the same content (stable text) plus a sliver of new
+ * frames at the tail.
  */
 const CONFIG = {
-  bufferFrames: 20,
-  decodeCadenceMs: 600,
+  bufferFrames: 40,
+  decodeCadenceMs: 900,
 } as const;
 
 interface FrameSample {
@@ -86,10 +103,23 @@ export function useTargetedTranscribe(
     };
   }, [active, connect]);
 
-  // Push each MediaPipe frame into the rolling buffer.
+  // Push each MediaPipe frame into the rolling buffer, but only when a
+  // hand is actually visible. Hand-absent frames feed the CTC model noise
+  // and cause spurious decodes.
+  const lastHandTimeRef = useRef<number>(0);
   useEffect(() => {
     if (!active || !detection) return;
     const { features, missing } = buildFrameFeatures(detection.landmarks);
+    if (!hasHand(missing)) {
+      // Clear stale buffer + decode once the user has put their hands down
+      // long enough that the displayed text is unrelated to current intent.
+      if (lastHandTimeRef.current && performance.now() - lastHandTimeRef.current > 2000) {
+        if (bufferRef.current.length > 0) bufferRef.current = [];
+        setLatest((cur) => (cur ? "" : cur));
+      }
+      return;
+    }
+    lastHandTimeRef.current = performance.now();
     const buf = bufferRef.current;
     buf.push({ features, missing });
     while (buf.length > CONFIG.bufferFrames) buf.shift();

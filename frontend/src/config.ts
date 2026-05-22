@@ -11,11 +11,9 @@ export const HTTP_ENDPOINTS = {
   tts: `${API_BASE}/api/tts`,
   health: `${API_BASE}/api/health`,
   referenceLandmarks: `${API_BASE}/api/reference-landmarks`,
-  signReferences: `${API_BASE}/api/sign-references`,
 };
 
 export const WS_ENDPOINTS = {
   detect: `${WS_BASE}/ws/detect-landmarks`,
   transcribeStream: `${WS_BASE}/ws/transcribe-stream`,
-  classifySign: `${WS_BASE}/ws/classify-sign`,
 };

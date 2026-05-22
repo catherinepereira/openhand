@@ -8,6 +8,11 @@ import { ReferenceView } from "./ReferenceView";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
+// del + space are extra classes from the 28-class alphabet model. The
+// reference-landmarks builder upper-cases class keys, so these match the
+// JSON shape served by the backend.
+const SPECIAL_CLASSES = ["DEL", "SPACE"] as const;
+
 const MOTION_LETTERS = new Set(["J", "Z"]);
 
 interface ReferencePayload {
@@ -112,7 +117,7 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
         >
           ← Back
         </button>
-        <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the signs</h2>
+        <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the letters</h2>
       </div>
 
       <div className="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-border-app bg-bg px-4 py-[0.85rem]">
@@ -157,6 +162,31 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
                 .join(" ")}
             >
               {l}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid w-full grid-cols-2 gap-[0.3rem]">
+        {SPECIAL_CLASSES.map((c) => {
+          const available = refs?.letters[c] !== undefined;
+          const selected = c === target;
+          return (
+            <button
+              key={c}
+              onClick={() => available && setTarget(c)}
+              disabled={!available}
+              className={[
+                "rounded-[7px] border-[1.5px] py-[0.55rem] text-[0.85rem] font-semibold tracking-wide transition-colors active:enabled:scale-95",
+                selected
+                  ? "border-ink bg-ink text-white"
+                  : "border-border-app bg-bg text-ink hover:enabled:bg-surface",
+                !available && "cursor-not-allowed opacity-35",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {c}
             </button>
           );
         })}

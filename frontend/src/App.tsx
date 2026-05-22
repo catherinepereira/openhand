@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { WebcamFeed } from "./components/WebcamFeed";
 import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
 import { LearnPanel } from "./components/LearnPanel";
-import { WordsPanel } from "./components/WordsPanel";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
+import { useFingerspellRecorder } from "./hooks/useFingerspellRecorder";
 import { HTTP_ENDPOINTS } from "./config";
 import "./App.css";
 
-const SIGN_DEBOUNCE_MS = 800;
-const OUTPUT_MAX_CHARS = 30;
-
-type View = "home" | "learn" | "words";
+type View = "home" | "learn";
 
 export default function App() {
   const { videoRef, videoElementRef, status, error, start, stop } = useWebcam();
@@ -23,57 +20,34 @@ export default function App() {
   const { detection } = useMediaPipe(videoElementRef, isActive);
   const { result: liveResult } = useSignDetection(detection, isActive);
 
-  const [outputText, setOutputText] = useState("");
+  // Recording session. While recording, every hand-present MediaPipe frame
+  // is buffered and the live MLP letter is collapse-appended. On stop, the
+  // full landmark buffer is sent to the CTC model in one shot for a clean
+  // phrase decode.
+  const recorder = useFingerspellRecorder(detection, liveResult.sign, isActive);
+
   const [speaking, setSpeaking] = useState(false);
   const [ttsEnabled] = useState(!!import.meta.env.VITE_TTS_ENABLED);
   const [showSkeleton, setShowSkeleton] = useState(true);
 
-  const enterLearn = useCallback(async () => {
-    if (!isActive) await start();
-    setView("learn");
-  }, [isActive, start]);
-
-  const enterWords = useCallback(async () => {
-    if (!isActive) await start();
-    setView("words");
-  }, [isActive, start]);
+  // Camera start/stop is always user-driven via the manual toggle. The
+  // Learn view works without the webcam (read-only reference browsing).
+  const enterLearn = useCallback(() => setView("learn"), []);
 
   const exitToHome = useCallback(() => setView("home"), []);
 
-  const lastSignRef = useRef<string>("-");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const sign = liveResult.sign;
-    if (sign === "-" || sign === lastSignRef.current) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      lastSignRef.current = sign;
-      setOutputText((prev) => {
-        const next = prev + sign;
-        return next.length > OUTPUT_MAX_CHARS
-          ? next.slice(-OUTPUT_MAX_CHARS)
-          : next;
-      });
-    }, SIGN_DEBOUNCE_MS);
-  }, [liveResult.sign]);
-
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
-
   const handleClear = useCallback(() => {
-    setOutputText("");
-    lastSignRef.current = "-";
-  }, []);
+    recorder.reset();
+  }, [recorder]);
 
   const handleSpeak = useCallback(async () => {
-    if (!outputText || speaking) return;
+    if (!recorder.result || speaking) return;
     setSpeaking(true);
     try {
       const res = await fetch(HTTP_ENDPOINTS.tts, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: outputText }),
+        body: JSON.stringify({ text: recorder.result }),
       });
       if (res.ok) {
         const blob = await res.blob();
@@ -87,7 +61,7 @@ export default function App() {
     } catch {
       setSpeaking(false);
     }
-  }, [outputText, speaking]);
+  }, [recorder.result, speaking]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -121,11 +95,11 @@ export default function App() {
                 OPEN SOURCE · REAL-TIME
               </div>
               <h1 className="text-[clamp(2.4rem,4vw,3.2rem)] font-normal leading-[1.1] tracking-tight">
-                Sign language,<br />
+                ASL fingerspelling,<br />
                 <strong className="font-bold">to speech.</strong>
               </h1>
               <p className="max-w-[38ch] text-[0.95rem] leading-[1.65] text-[#555]">
-                OpenHand detects signs as you make them and converts to text and speech in real time.
+                OpenHand reads ASL fingerspelling from your webcam and converts it to text and speech in real time.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -138,13 +112,7 @@ export default function App() {
                   onClick={enterLearn}
                   className="rounded-[9px] border-[1.5px] border-border-app bg-bg px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors hover:bg-surface"
                 >
-                  Learn the signs
-                </button>
-                <button
-                  onClick={enterWords}
-                  className="rounded-[9px] border-[1.5px] border-border-app bg-bg px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors hover:bg-surface"
-                >
-                  Learn the words
+                  Learn the letters
                 </button>
               </div>
             </>
@@ -152,13 +120,6 @@ export default function App() {
           {view === "learn" && (
             <LearnPanel
               detection={liveResult}
-              frameDetection={detection}
-              active={isActive}
-              onExit={exitToHome}
-            />
-          )}
-          {view === "words" && (
-            <WordsPanel
               frameDetection={detection}
               active={isActive}
               onExit={exitToHome}
@@ -178,9 +139,35 @@ export default function App() {
 
           <SignDisplay sign={liveResult.sign} confidence={liveResult.confidence} />
 
-          {(isActive || outputText) && (
+          {isActive && (
+            <div className="flex w-full max-w-[640px] items-center gap-3">
+              {recorder.state === "recording" ? (
+                <button
+                  onClick={recorder.stop}
+                  className="flex items-center gap-2 rounded-[9px] bg-[#dc2626] px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium text-white transition-opacity hover:opacity-85"
+                >
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
+                  Stop ({recorder.frameCount} frames)
+                </button>
+              ) : (
+                <button
+                  onClick={recorder.start}
+                  disabled={recorder.state === "decoding"}
+                  className="flex items-center gap-2 rounded-[9px] bg-ink px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />
+                  {recorder.state === "decoding" ? "Decoding..." : "Record"}
+                </button>
+              )}
+              {recorder.error && (
+                <span className="text-[0.8rem] text-[#b14242]">{recorder.error}</span>
+              )}
+            </div>
+          )}
+
+          {(isActive || recorder.result) && (
             <TextOutput
-              text={outputText}
+              text={recorder.result}
               onClear={handleClear}
               onSpeak={handleSpeak}
               ttsEnabled={ttsEnabled}
@@ -197,7 +184,7 @@ export default function App() {
         </div>
         <div className="flex flex-col gap-[0.3rem] border-r border-border-app px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app">
           <span className="label-caps">CLASSIFICATION</span>
-          <span className="text-[0.95rem] font-medium text-ink">MLP (per sign) and CTC (phrase transcription)</span>
+          <span className="text-[0.95rem] font-medium text-ink">MLP (per letter) and CTC (phrase transcription)</span>
         </div>
         <div className="flex flex-col gap-[0.3rem] px-10 py-[1.4rem]">
           <span className="label-caps">OUTPUT</span>
