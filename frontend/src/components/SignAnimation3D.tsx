@@ -4,14 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 // 127-landmark Holistic subset. Layout matches openhand-model's
-// signs_landmarks.py. The frontend doesn't need every group for the
-// visualization; we draw the two hands and the lips, which carry the
-// most signal for sign recognition.
+// signs_landmarks.py. We only render the two hands.
 const N_LANDMARKS = 127;
 
 // Group offsets in landmark units (matches signs_landmarks.py).
-const LIPS_START = 0;
-const LIPS_LEN = 40;
 const LEFT_HAND_START = 76 + 9;       // face + pose offset
 const RIGHT_HAND_START = LEFT_HAND_START + 21;
 const HAND_LEN = 21;
@@ -68,12 +64,12 @@ function unpack(
   return out;
 }
 
-function Bones({ points, color }: { points: THREE.Vector3[]; color: string }) {
-  // Two hands' worth of bones. Skip a bone if either endpoint is missing.
+function Bones({ points, missing, color }: { points: THREE.Vector3[]; missing: boolean[]; color: string }) {
   return (
     <>
       {[LEFT_HAND_START, RIGHT_HAND_START].map((handStart) =>
         HAND_CONNECTIONS.map(([a, b], i) => {
+          if (missing[handStart + a] || missing[handStart + b]) return null;
           const pa = points[handStart + a];
           const pb = points[handStart + b];
           const mid = pa.clone().add(pb).multiplyScalar(0.5);
@@ -96,30 +92,21 @@ function Bones({ points, color }: { points: THREE.Vector3[]; color: string }) {
   );
 }
 
-function HandJoints({ points, color }: { points: THREE.Vector3[]; color: string }) {
-  const joints: THREE.Vector3[] = [];
-  for (let i = 0; i < HAND_LEN; i++) joints.push(points[LEFT_HAND_START + i]);
-  for (let i = 0; i < HAND_LEN; i++) joints.push(points[RIGHT_HAND_START + i]);
+function HandJoints({ points, missing, color }: { points: THREE.Vector3[]; missing: boolean[]; color: string }) {
+  const items: { p: THREE.Vector3; key: number }[] = [];
+  for (const handStart of [LEFT_HAND_START, RIGHT_HAND_START]) {
+    for (let i = 0; i < HAND_LEN; i++) {
+      const lm = handStart + i;
+      if (missing[lm]) continue;
+      items.push({ p: points[lm], key: lm });
+    }
+  }
   return (
     <>
-      {joints.map((p, i) => (
-        <mesh key={i} position={p}>
+      {items.map(({ p, key }) => (
+        <mesh key={key} position={p}>
           <sphereGeometry args={[0.022, 14, 14]} />
           <meshStandardMaterial color={color} roughness={0.3} metalness={0.2} />
-        </mesh>
-      ))}
-    </>
-  );
-}
-
-function Lips({ points }: { points: THREE.Vector3[] }) {
-  // Lips as a faint outline so the user can see head orientation.
-  return (
-    <>
-      {Array.from({ length: LIPS_LEN }).map((_, i) => (
-        <mesh key={i} position={points[LIPS_START + i]}>
-          <sphereGeometry args={[0.006, 8, 8]} />
-          <meshStandardMaterial color="#888" roughness={0.6} metalness={0} />
         </mesh>
       ))}
     </>
@@ -192,9 +179,8 @@ function Scene({
 
   return (
     <group>
-      <Lips points={shifted} />
-      <Bones points={shifted} color={color} />
-      <HandJoints points={shifted} color={color} />
+      <Bones points={shifted} missing={current.missing} color={color} />
+      <HandJoints points={shifted} missing={current.missing} color={color} />
     </group>
   );
 }

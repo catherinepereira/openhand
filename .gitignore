@@ -19,28 +19,6 @@ backend/**/__pycache__/
 backend/.env
 frontend/.env
 
-# Model artifacts: none of these are checked in. The user trains them in
-# openhand-model and copies the outputs into backend/models/artifacts/.
-# See README "Setting up the models" for the full list and where each
-# one comes from. The directory itself is kept (with a .gitkeep) so the
-# path exists on a fresh clone.
-backend/models/artifacts/*.onnx
-backend/models/artifacts/*.json
-backend/models/artifacts/*.task
-backend/models/artifacts/*.bak
-backend/models/artifacts/_per_letter/
-
-# Frontend has its own .gitignore at frontend/.gitignore; this is just a
-# safety net in case anything escapes upward.
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# MediaPipe Tasks model files. Downloaded by
-# frontend/scripts/download_mediapipe_models.mjs at setup time.
-frontend/public/models/*.task
-
 # Editor / OS / agent state
 .vscode/
 !.vscode/extensions.json

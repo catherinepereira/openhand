@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HTTP_ENDPOINTS } from "../config";
 import { useWordDetection, type WordPrediction } from "../hooks/useWordDetection";
 import type { FrameDetection } from "../lib/mediapipe";
+import { ReferenceView } from "./ReferenceView";
 import { SignAnimation3D } from "./SignAnimation3D";
 
 interface ReferenceClip {
@@ -121,11 +122,16 @@ export function WordsPanel({ frameDetection, active, onExit }: Props) {
               Loading sign references...
             </div>
           )}
-          {targetClip && (
-            <SignAnimation3D
-              landmarks={targetClip.landmarks}
-              missing={targetClip.missing}
-              frames={targetClip.n_frames}
+          {targetClip && target && (
+            <ReferenceView
+              imageSrc={`/reference-signs/${target}.png`}
+              animation={
+                <SignAnimation3D
+                  landmarks={targetClip.landmarks}
+                  missing={targetClip.missing}
+                  frames={targetClip.n_frames}
+                />
+              }
             />
           )}
         </div>

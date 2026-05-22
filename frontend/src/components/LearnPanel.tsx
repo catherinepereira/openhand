@@ -4,6 +4,7 @@ import type { DetectionResult } from "../hooks/useSignDetection";
 import { useTargetedTranscribe } from "../hooks/useTargetedTranscribe";
 import type { FrameDetection } from "../lib/mediapipe";
 import { HandModel3D } from "./HandModel3D";
+import { ReferenceView } from "./ReferenceView";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -127,7 +128,12 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
               Loading reference poses...
             </div>
           )}
-          {targetLandmarks && <HandModel3D landmarks={targetLandmarks} />}
+          {targetLandmarks && (
+            <ReferenceView
+              imageSrc={`/reference-letters/${target}.svg`}
+              animation={<HandModel3D landmarks={targetLandmarks} />}
+            />
+          )}
         </div>
       </div>
 
