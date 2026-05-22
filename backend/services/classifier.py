@@ -83,10 +83,12 @@ class SignClassifier:
         if target is None:
             return DetectionResult(sign="-", confidence=0.0, hands=hands)
 
-        vec = np.array([[lm.x, lm.y, lm.z] for lm in target.landmarks], dtype=np.float32).reshape(63)
+        vec = np.empty(N_FEATURES, dtype=np.float32)
+        for i, lm in enumerate(target.landmarks):
+            vec[i * 3 : i * 3 + 3] = (lm.x, lm.y, lm.z)
         vec = _normalize(vec)
 
-        logits = self.session.run(None, {self.input_name: vec.reshape(1, 63)})[0][0]
+        logits = self.session.run(None, {self.input_name: vec.reshape(1, N_FEATURES)})[0][0]
         probs = _softmax(logits)
         idx = int(probs.argmax())
         confidence = float(probs[idx])

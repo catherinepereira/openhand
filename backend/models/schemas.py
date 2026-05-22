@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Landmark(BaseModel):
@@ -24,8 +24,9 @@ class DetectionResult(BaseModel):
 
 
 class TTSRequest(BaseModel):
-    text: str
-    voice_id: str | None = "21m00Tcm4TlvDq8ikWAM"
+    # Length cap stops a caller from burning ElevenLabs quota on huge inputs
+    text: str = Field(..., min_length=1, max_length=500)
+    voice_id: str | None = Field("21m00Tcm4TlvDq8ikWAM", max_length=64)
 
 
 class DetectLandmarksRequest(BaseModel):

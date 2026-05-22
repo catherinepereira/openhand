@@ -21,13 +21,14 @@ from ..services.tts import text_to_speech
 
 router = APIRouter()
 
+# Upper bounds on per-message tensor sizes
+MAX_FRAMES = 512
+
 # Alphabet classifier is small and fast to load; instantiate eagerly.
 classifier = SignClassifier()
 
-# CTC ONNX is 116 MB; lazy-load on first transcribe call.
+# Lazy-load these
 _ctc: CTCClassifier | None = None
-
-# Word-level (isolated sign) classifier; ONNX is ~10-20 MB. Lazy-load.
 _words: WordClassifier | None = None
 
 
@@ -116,6 +117,11 @@ async def transcribe_stream_ws(websocket: WebSocket):
                     json.dumps({"type": "error", "message": "bad payload"})
                 )
                 continue
+            if T < 0 or T > MAX_FRAMES:
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": f"frame_count out of range [0, {MAX_FRAMES}]"})
+                )
+                continue
             if T == 0:
                 await websocket.send_text(json.dumps({"type": "result", "text": "", "elapsed_ms": 0.0}))
                 continue
@@ -192,6 +198,13 @@ async def classify_sign_ws(websocket: WebSocket):
                     json.dumps({"type": "error", "message": "bad payload"})
                 )
                 continue
+            if T < 0 or T > MAX_FRAMES:
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": f"frame_count out of range [0, {MAX_FRAMES}]"})
+                )
+                continue
+            if not (1 <= top_k <= 250):
+                top_k = 5
             if T == 0:
                 await websocket.send_text(
                     json.dumps({"type": "result", "predictions": [], "elapsed_ms": 0.0})
