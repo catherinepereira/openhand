@@ -9,12 +9,12 @@ Two recognition paths:
 
 The Learn-the-letters view shows a reference image per A-Z (plus `del` / `space`) and grades your handshape against the target letter live. J and Z are motion letters; the Learn view scores them against the CTC decode instead of the static MLP.
 
-Train the models in the sibling repo [openhand-model](https://www.github.com/catherinepereira/openhand-model) and copy the outputs into `frontend/public/models/`. See "Setting up the models" below.
+Train the models in the sibling repo [openhand-model](https://www.github.com/catherinepereira/openhand-model) and copy the outputs into `public/models/`. See "Setting up the models" below.
 
 # Running
 
 ```
-cd frontend
+npm install
 npm run dev
 ```
 
