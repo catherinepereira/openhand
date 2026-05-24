@@ -28,11 +28,11 @@ const TASK_URLS = {
   face: "/models/face_landmarker.task",
 } as const;
 
-// Minimum detection / presence confidences. Match the backend so behavior
-// is consistent across the local-Python and in-browser code paths.
+// Minimum detection / presence confidences.
+// Tuned low so the detector keeps tracking through partial occlusion (e.g. fingers crossing) instead of dropping the hand frame
 const MIN_CONFIDENCE = 0.3;
 
-/** Bundle of initialized detectors; lifetime owned by the caller. */
+/** Bundle of initialized detectors; lifetime owned by the caller */
 export interface MediaPipeDetectors {
   hand: HandLandmarker;
   pose: PoseLandmarker;
@@ -91,18 +91,14 @@ export async function createDetectors(
   };
 }
 
-/** One frame's typed detection output, ready to feed into
- *  {@link buildFrameFeatures} from `landmarks.ts`. */
+/** One frame's typed detection output, ready to feed into {@link buildFrameFeatures} from `landmarks.ts` */
 export interface FrameDetection {
   landmarks: RawFrameLandmarks;
 }
 
-// Reusable offscreen canvas for sampling the video at its native source
-// resolution. Passing the <video> directly to MediaPipe samples it at the
-// element's *display* size (CSS-scaled), which shifts coordinates when
-// that differs from the underlying stream's videoWidth/Height. Going
-// through a canvas at videoWidth x videoHeight matches the backend's
-// JPEG-decode path pixel-for-pixel.
+// Reusable offscreen canvas for sampling the video at its native source resolution.
+// Passing the <video> directly to MediaPipe samples it at the element's *display* size (CSS-scaled), which shifts landmark coordinates whenever that differs from the underlying stream's videoWidth/Height.
+// Drawing into a same-size canvas first keeps the coordinate space stable
 const _sampleCanvas: HTMLCanvasElement =
   typeof document !== "undefined" ? document.createElement("canvas") : (null as never);
 let _sampleCtx: CanvasRenderingContext2D | null = null;
@@ -120,15 +116,11 @@ function sampleVideoAtNativeRes(video: HTMLVideoElement): HTMLCanvasElement | nu
 }
 
 /**
- * Run all three detectors on the same video frame and package the output
- * into the shape landmarks.ts expects.
+ * Run all three detectors on the same video frame and package the output into the shape landmarks.ts expects.
  *
- * Uses IMAGE-mode detect() so each frame is treated independently; matches
- * the backend pipeline (stateless IMAGE detector on a decoded JPEG) and
- * avoids video-mode coordinate drift.
+ * Uses IMAGE-mode detect() so each frame is treated independently; this avoids the coordinate drift VIDEO mode introduces when frames arrive out of order.
  *
- * timestampMs is unused in IMAGE mode but kept in the signature so callers
- * don't have to change if we swap modes later.
+ * timestampMs is unused in IMAGE mode but kept in the signature so callers don't have to change if the mode flips later
  */
 export function detectFrame(
   detectors: MediaPipeDetectors,
@@ -148,8 +140,8 @@ export function detectFrame(
 }
 
 /**
- * Run a MediaPipe detect call and swallow any thrown errors. A failing
- * single sub-detector shouldn't crash the whole frame.
+ * Run a MediaPipe detect call and swallow any thrown errors.
+ * A failing single sub-detector shouldn't crash the whole frame
  */
 function safeDetect<T>(fn: () => T): T | null {
   try {
@@ -164,12 +156,9 @@ function firstOrNull<T>(arr: readonly T[] | undefined): T | null {
 }
 
 /**
- * Split the (up to 2) detected hands into a left + right pair using
- * MediaPipe's handedness classifier.
+ * Split the (up to 2) detected hands into a left + right pair using MediaPipe's handedness classifier.
  *
- * Note this is camera-POV "left/right": a right-handed user with a
- * non-mirrored feed has their right hand appear on the camera's left side,
- * so MediaPipe labels it "Left."
+ * Camera-POV "left/right": a right-handed user with a non-mirrored feed has their right hand appear on the camera's left side, so MediaPipe labels it "Left"
  */
 export function splitHands(result: HandLandmarkerResult | null): {
   leftHand: NormalizedLandmark[] | null;

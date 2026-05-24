@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 type Mode = "media" | "animation";
 
 interface Props {
-  /** Path under /public, e.g. "/reference-letters/A.svg" or "/reference-signs/airplane.mp4". */
+  /** Path under /public, e.g. "/reference-letters/A.svg" or "/reference-signs/airplane.mp4" */
   imageSrc: string;
-  /** Rendered when mode is "animation" or when imageSrc fails to load. */
+  /** Rendered when mode is "animation" or when imageSrc fails to load */
   animation: React.ReactNode;
-  /** Defaults to "media". */
+  /** Defaults to "media" */
   initialMode?: Mode;
 }
 

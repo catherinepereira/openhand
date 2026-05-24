@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { WS_ENDPOINTS } from "../config";
+import { useEffect, useRef, useState } from "react";
+import { classifyHand, warmup } from "../lib/alphabet";
 import type { FrameDetection } from "../lib/mediapipe";
 
 export interface Landmark {
@@ -9,7 +9,7 @@ export interface Landmark {
 }
 
 export interface DetectedHand {
-  /** MediaPipe-camera-POV label: "Left" / "Right" / "" if unknown. */
+  /** MediaPipe-camera-POV label: "Left" / "Right" / "" if unknown */
   handedness: string;
   landmarks: Landmark[];
 }
@@ -17,69 +17,38 @@ export interface DetectedHand {
 export interface DetectionResult {
   sign: string;
   confidence: number;
-  /** Every visible hand in raw-video coords. Populated client-side so
-   *  the overlay stays in sync with the camera regardless of backend
-   *  round-trip latency. */
+  /** Every visible hand in raw-video coords.
+   *  Populated so the overlay stays in sync with the camera regardless of inference latency */
   hands: DetectedHand[];
 }
 
 /**
- * Live per-frame letter detection. Consumes MediaPipe output from
- * useMediaPipe and forwards each frame's hands to the backend alphabet
- * MLP over a WebSocket.
+ * Live per-frame letter detection.
+ * Runs the alphabet MLP in-browser via onnxruntime-web on each MediaPipe detection
  */
 export function useSignDetection(
   detection: FrameDetection | null,
   active: boolean,
 ) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const overlayHandsRef = useRef<DetectedHand[]>([]);
   const [result, setResult] = useState<DetectionResult>({
     sign: "-",
     confidence: 0,
     hands: [],
   });
+  // Only one classify in flight at a time.
+  // Frames arriving during inference are dropped; the next frame catches up
+  const inflightRef = useRef(false);
 
-  const connect = useCallback(() => {
-    const existing = wsRef.current;
-    if (
-      existing &&
-      (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-    const ws = new WebSocket(WS_ENDPOINTS.detect);
-    ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
-    };
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        setResult({
-          sign: data.sign ?? "-",
-          confidence: data.confidence ?? 0,
-          hands: overlayHandsRef.current,
-        });
-      } catch {
-        // ignore malformed payloads
-      }
-    };
-    wsRef.current = ws;
+  useEffect(() => {
+    warmup().catch((err) => console.error("Alphabet model warmup failed:", err));
   }, []);
 
   useEffect(() => {
     if (!active) {
-      wsRef.current?.close();
-      wsRef.current = null;
       setResult({ sign: "-", confidence: 0, hands: [] });
       return;
     }
-    connect();
-    return () => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    };
-  }, [active, connect]);
+  }, [active]);
 
   useEffect(() => {
     if (!active || !detection) return;
@@ -99,7 +68,6 @@ export function useSignDetection(
         landmarks: right.map((lm) => ({ x: lm.x, y: lm.y, z: lm.z })),
       });
     }
-    overlayHandsRef.current = hands;
 
     if (hands.length === 0) {
       setResult((prev) =>
@@ -110,12 +78,19 @@ export function useSignDetection(
       return;
     }
 
-    if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      connect();
-      return;
-    }
-    wsRef.current.send(JSON.stringify({ hands }));
-  }, [detection, active, connect]);
+    if (inflightRef.current) return;
+    inflightRef.current = true;
+    classifyHand(hands)
+      .then(({ sign, confidence }) => {
+        setResult({ sign, confidence, hands });
+      })
+      .catch((err) => {
+        console.error("Alphabet inference failed:", err);
+      })
+      .finally(() => {
+        inflightRef.current = false;
+      });
+  }, [detection, active]);
 
   return { result };
 }

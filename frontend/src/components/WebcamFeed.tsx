@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { HandIcon } from "./icons";
+import { CameraIcon } from "./icons";
 import type { DetectedHand } from "../hooks/useSignDetection";
 
 interface Props {
@@ -126,7 +126,7 @@ export function WebcamFeed({
       <div className="relative flex aspect-[4/3] w-[min(760px,96%)] items-center justify-center overflow-hidden rounded-3xl border border-border-app bg-surface shadow-[0_2px_16px_rgba(0,0,0,0.05)]">
         {status !== "active" && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <HandIcon />
+            <CameraIcon />
           </div>
         )}
         <video

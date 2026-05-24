@@ -1,10 +1,8 @@
 /**
  * Download MediaPipe Tasks .task model files into frontend/public/models/.
  *
- * Run once after `npm install`. Idempotent: files already on disk are
- * reported but not re-downloaded. The frontend serves these files
- * statically (Vite serves anything in `public/` from the site root) and
- * the MediaPipe Tasks JS loader fetches them at runtime.
+ * Run once after `npm install`. Idempotent: files already on disk are reported but not re-downloaded.
+ * Vite serves anything in `public/` from the site root, and the MediaPipe Tasks JS loader fetches these at runtime
  *
  * Usage:
  *   node frontend/scripts/download_mediapipe_models.mjs

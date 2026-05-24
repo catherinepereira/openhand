@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
 // MediaPipe hand topology: 21 landmarks per hand, indexed 0..20.
-// Connections form the 5 fingers + palm. Same set used by WebcamFeed.tsx.
+// Connections form the 5 fingers + palm; same set used by WebcamFeed.tsx
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 1], [1, 2], [2, 3], [3, 4],
   [0, 5], [5, 6], [6, 7], [7, 8],
@@ -14,17 +14,15 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 interface Props {
-  /** Length-63 array of 21 (x, y, z) MediaPipe landmarks, wrist-anchored
-   *  and p95-scaled (same coordinate space the alphabet classifier sees). */
+  /** Length-63 array of 21 (x, y, z) MediaPipe landmarks, wrist-anchored and p95-scaled (same coordinate space the alphabet classifier sees) */
   landmarks: ReadonlyArray<number>;
-  /** Optional accent color for joints and bones. */
+  /** Optional accent color for joints and bones */
   color?: string;
 }
 
 /**
  * Convert the flat 63-float MediaPipe vector to 21 THREE.Vector3 points.
- * MediaPipe is x-right, y-down, z-toward-camera; we flip y so the hand
- * stands upright in Three.js's default y-up world.
+ * MediaPipe is x-right, y-down, z-toward-camera; y is flipped here so the hand stands upright in Three.js's default y-up world
  */
 function toPoints(landmarks: ReadonlyArray<number>): THREE.Vector3[] {
   const pts: THREE.Vector3[] = [];
@@ -75,7 +73,7 @@ function Joints({ points, color }: { points: THREE.Vector3[]; color: string }) {
 }
 
 function Scene({ points, color }: { points: THREE.Vector3[]; color: string }) {
-  // Wrist-anchor defensively in case the input drifts off origin.
+  // Wrist-anchor defensively in case the input drifts off origin
   const centered = useMemo(() => {
     const wrist = points[0];
     return points.map((p) => p.clone().sub(wrist));

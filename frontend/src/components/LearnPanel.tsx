@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { HTTP_ENDPOINTS } from "../config";
 import type { DetectionResult } from "../hooks/useSignDetection";
 import { useTargetedTranscribe } from "../hooks/useTargetedTranscribe";
 import type { FrameDetection } from "../lib/mediapipe";
 import { HandModel3D } from "./HandModel3D";
 import { ReferenceView } from "./ReferenceView";
 
+const REFERENCE_LANDMARKS_URL = "/models/reference_landmarks.json";
+
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-// del + space are extra classes from the 28-class alphabet model. The
-// reference-landmarks builder upper-cases class keys, so these match the
-// JSON shape served by the backend.
+// del + space are extra classes from the 28-class alphabet model.
+// The reference-landmarks builder upper-cases class keys, so these match the keys under /models/reference_landmarks.json
 const SPECIAL_CLASSES = ["DEL", "SPACE"] as const;
 
 const MOTION_LETTERS = new Set(["J", "Z"]);
@@ -29,6 +29,8 @@ interface Props {
   frameDetection: FrameDetection | null;
   active: boolean;
   onExit: () => void;
+  onStartCamera: () => void;
+  onStopCamera: () => void;
 }
 
 function gradeStatic(targetLetter: string, detection: DetectionResult): Grade {
@@ -67,7 +69,7 @@ const GRADE_COLOR: Record<Grade, string> = {
   none: "#888",
 };
 
-export function LearnPanel({ detection, frameDetection, active, onExit }: Props) {
+export function LearnPanel({ detection, frameDetection, active, onExit, onStartCamera, onStopCamera }: Props) {
   const [refs, setRefs] = useState<ReferencePayload | null>(null);
   const [refsError, setRefsError] = useState<string | null>(null);
   const [target, setTarget] = useState<string>("A");
@@ -77,7 +79,7 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
 
   useEffect(() => {
     let cancelled = false;
-    fetch(HTTP_ENDPOINTS.referenceLandmarks)
+    fetch(REFERENCE_LANDMARKS_URL)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -110,12 +112,18 @@ export function LearnPanel({ detection, frameDetection, active, onExit }: Props)
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           onClick={onExit}
           className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
         >
           ← Back
+        </button>
+        <button
+          onClick={active ? onStopCamera : onStartCamera}
+          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
+        >
+          {active ? "Stop camera" : "Start camera"}
         </button>
         <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the letters</h2>
       </div>

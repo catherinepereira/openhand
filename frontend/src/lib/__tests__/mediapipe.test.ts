@@ -14,7 +14,7 @@ function makeHand(x: number): NormalizedLandmark[] {
   return Array.from({ length: 21 }, (_, i) => ({ x: x + i * 0.001, y: 0.5, z: 0 }));
 }
 
-/** Build a minimal HandLandmarkerResult-shaped object. */
+/** Build a minimal HandLandmarkerResult-shaped object */
 function makeResult(
   hands: { label: "Left" | "Right" | "Unknown"; lms: NormalizedLandmark[] }[],
 ) {

@@ -3,12 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export type WebcamStatus = "idle" | "requesting" | "active" | "error";
 
 export function useWebcam() {
-  // videoRef is exposed as a normal ref so callers can pass it to <video>,
-  // but we also track the *current* element via a callback ref so that
-  // when the consumer remounts the <video> in a different view (e.g.
-  // switching from the home screen to the Learn screen) we can re-attach
-  // the live MediaStream to the new element. Without this, the stream
-  // stays bound to the unmounted element and the new <video> is blank.
+  // videoRef is exposed as a normal ref so callers can pass it to <video>, but the *current* element is also tracked via a callback ref.
+  // When the consumer remounts the <video> in a different view (e.g. switching from the home screen to the Learn screen), the callback re-attaches the live MediaStream to the new element.
+  // Without this, the stream stays bound to the unmounted element and the new <video> is blank
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<WebcamStatus>("idle");
@@ -21,7 +18,7 @@ export function useWebcam() {
     }
     if (streamRef.current && el.paused) {
       el.play().catch(() => {
-        // Autoplay can fail on iOS Safari without a user gesture; ignore.
+        // Autoplay can fail on iOS Safari without a user gesture; ignore
       });
     }
   }, []);
@@ -58,12 +55,11 @@ export function useWebcam() {
   useEffect(() => () => { stop(); }, []);
 
   return {
-    /** Pass to JSX: `<video ref={videoRef} />`. Re-attaches the stream
-     *  if React remounts the element (e.g. switching views). */
+    /** Pass to JSX: `<video ref={videoRef} />`.
+     *  Re-attaches the stream if React remounts the element (e.g. switching views) */
     videoRef: setVideoRef,
-    /** For consumers that need to read the underlying element (canvas
-     *  sizing, MediaPipe input, etc.). Always points at the most recent
-     *  mounted <video>. */
+    /** For consumers that need to read the underlying element (canvas sizing, MediaPipe input, etc).
+     *  Always points at the most recent mounted <video> */
     videoElementRef: videoRef,
     status,
     error,

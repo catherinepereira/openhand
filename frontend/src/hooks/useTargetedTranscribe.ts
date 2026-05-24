@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { WS_ENDPOINTS } from "../config";
-import { FRAME_FEATURES, FRAME_LANDMARKS, GROUP_OFFSETS, GROUP_SIZES, buildFrameFeatures } from "../lib/landmarks";
+import { useEffect, useRef, useState } from "react";
+import {
+  FRAME_FEATURES,
+  FRAME_LANDMARKS,
+  GROUP_OFFSETS,
+  GROUP_SIZES,
+  buildFrameFeatures,
+} from "../lib/landmarks";
+import { transcribe, warmup as warmupCTC } from "../lib/ctc";
 import type { FrameDetection } from "../lib/mediapipe";
 
 function hasHand(missing: Uint8Array): boolean {
-  // Hand-present = at least one non-missing landmark in either hand group.
-  // The CTC model learned to read fingerspelling from the hands; sending a
-  // frame with both hands absent feeds it pure noise and produces spurious
-  // decodes.
   const lh = GROUP_OFFSETS.leftHand;
   const rh = GROUP_OFFSETS.rightHand;
   for (let i = 0; i < GROUP_SIZES.leftHand; i++) {
@@ -20,20 +22,16 @@ function hasHand(missing: Uint8Array): boolean {
 }
 
 /**
- * Per-target CTC scoring for the Learn screen.
+ * Rolling-window CTC decode for the Learn screen's J/Z grading.
+ * Keeps a ~4s buffer of hand-present frames and re-decodes on a timer.
  *
- * Keeps a rolling ~4s window of frames and re-decodes it on a timer,
- * exposing the latest decoded string. 4s covers most short fingerspelled
- * words end-to-end, which matters because the CTC model is trained on
- * whole sequences; a 2s slice catches mid-word and decodes badly.
- *
- * Decode cadence of 900ms is below the buffer length, so each tick
- * mostly re-decodes the same content (stable text) plus a sliver of new
- * frames at the tail.
+ * Runs CTC client-side via lib/ctc.ts.
+ * Beam=3 instead of the default 10 because this fires every cadence tick and the latency budget is tighter
  */
 const CONFIG = {
   bufferFrames: 40,
   decodeCadenceMs: 900,
+  beamWidth: 3,
 } as const;
 
 interface FrameSample {
@@ -42,9 +40,9 @@ interface FrameSample {
 }
 
 export interface TargetedTranscribeResult {
-  /** The most recent CTC decode of the rolling buffer. */
+  /** The most recent CTC decode of the rolling buffer */
   latest: string;
-  /** True if the CTC model failed to load on the server side. */
+  /** True if the CTC model failed to load */
   unavailable: boolean;
 }
 
@@ -52,67 +50,35 @@ export function useTargetedTranscribe(
   detection: FrameDetection | null,
   active: boolean,
 ): TargetedTranscribeResult {
-  const wsRef = useRef<WebSocket | null>(null);
   const bufferRef = useRef<FrameSample[]>([]);
   const decodeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inflightRef = useRef(false);
+  const lastHandTimeRef = useRef<number>(0);
 
   const [latest, setLatest] = useState("");
   const [unavailable, setUnavailable] = useState(false);
 
-  const connect = useCallback(() => {
-    const existing = wsRef.current;
-    if (
-      existing &&
-      (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-    const ws = new WebSocket(WS_ENDPOINTS.transcribeStream);
-    ws.onopen = () => setUnavailable(false);
-    ws.onclose = () => {
-      if (wsRef.current === ws) wsRef.current = null;
-    };
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "result") {
-          setLatest(data.text ?? "");
-        } else if (data.type === "error") {
-          // The backend sends this then closes if the CTC ONNX is missing.
-          setUnavailable(true);
-        }
-      } catch {
-        // ignore malformed payloads
-      }
-    };
-    wsRef.current = ws;
+  useEffect(() => {
+    warmupCTC().catch((err) => {
+      console.error("CTC warmup failed:", err);
+      setUnavailable(true);
+    });
   }, []);
 
   useEffect(() => {
     if (!active) {
-      wsRef.current?.close();
-      wsRef.current = null;
       bufferRef.current = [];
       setLatest("");
       return;
     }
-    connect();
-    return () => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    };
-  }, [active, connect]);
+  }, [active]);
 
-  // Push each MediaPipe frame into the rolling buffer, but only when a
-  // hand is actually visible. Hand-absent frames feed the CTC model noise
-  // and cause spurious decodes.
-  const lastHandTimeRef = useRef<number>(0);
+  // Push hand-present frames into the rolling buffer.
+  // After 2s of no hand, clear the buffer + displayed text so what's on screen reflects current intent
   useEffect(() => {
     if (!active || !detection) return;
     const { features, missing } = buildFrameFeatures(detection.landmarks);
     if (!hasHand(missing)) {
-      // Clear stale buffer + decode once the user has put their hands down
-      // long enough that the displayed text is unrelated to current intent.
       if (lastHandTimeRef.current && performance.now() - lastHandTimeRef.current > 2000) {
         if (bufferRef.current.length > 0) bufferRef.current = [];
         setLatest((cur) => (cur ? "" : cur));
@@ -125,7 +91,7 @@ export function useTargetedTranscribe(
     while (buf.length > CONFIG.bufferFrames) buf.shift();
   }, [detection, active]);
 
-  // Periodic decode tick.
+  // Periodic decode tick
   useEffect(() => {
     if (!active || unavailable) {
       if (decodeTimerRef.current) clearInterval(decodeTimerRef.current);
@@ -134,11 +100,7 @@ export function useTargetedTranscribe(
     }
 
     decodeTimerRef.current = setInterval(() => {
-      const ws = wsRef.current;
-      if (ws?.readyState !== WebSocket.OPEN) {
-        connect();
-        return;
-      }
+      if (inflightRef.current) return;
       const buf = bufferRef.current;
       if (buf.length === 0) return;
 
@@ -150,21 +112,23 @@ export function useTargetedTranscribe(
         flatMissing.set(buf[t].missing, t * FRAME_LANDMARKS);
       }
 
-      ws.send(
-        JSON.stringify({
-          type: "decode",
-          frame_count: T,
-          features: Array.from(flatFeatures),
-          missing: Array.from(flatMissing, (b) => b !== 0),
-        }),
-      );
+      inflightRef.current = true;
+      transcribe(flatFeatures, flatMissing, { beamWidth: CONFIG.beamWidth })
+        .then((text) => setLatest(text))
+        .catch((err) => {
+          console.error("CTC decode failed:", err);
+          setUnavailable(true);
+        })
+        .finally(() => {
+          inflightRef.current = false;
+        });
     }, CONFIG.decodeCadenceMs);
 
     return () => {
       if (decodeTimerRef.current) clearInterval(decodeTimerRef.current);
       decodeTimerRef.current = null;
     };
-  }, [active, connect, unavailable]);
+  }, [active, unavailable]);
 
   return { latest, unavailable };
 }

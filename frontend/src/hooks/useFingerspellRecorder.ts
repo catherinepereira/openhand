@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { WS_ENDPOINTS } from "../config";
 import {
   FRAME_FEATURES,
   FRAME_LANDMARKS,
@@ -7,21 +6,16 @@ import {
   GROUP_SIZES,
   buildFrameFeatures,
 } from "../lib/landmarks";
+import { transcribe, warmup as warmupCTC } from "../lib/ctc";
 import type { FrameDetection } from "../lib/mediapipe";
 
 /**
- * User-driven fingerspelling recorder. The caller drives start()/stop();
- * while recording, every MediaPipe frame with a visible hand pushes a
- * (features, missing) sample into a buffer and the latest per-letter MLP
- * sign is appended to a parallel sequence.
+ * User-driven fingerspelling recorder.
  *
- * On stop(), the full landmark buffer is sent in one shot to the CTC
- * WebSocket, and the decoded phrase is returned via `result`.
- *
- * The MLP-letter sequence is exposed too so the caller can use it
- * separately (e.g. as a second-opinion lookup or search hint).
+ * While recording, every MediaPipe frame with a visible hand pushes a (features, missing) sample into a buffer, and the latest per-letter MLP sign is appended to a parallel sequence.
+ * On stop(), the full landmark buffer is run through the CTC model client-side and the decoded phrase is returned via `result`
  */
-const MAX_FRAMES = 512; // matches backend MAX_FRAMES guard
+const MAX_FRAMES = 256; // matches CTC training-time max_frames
 const MIN_FRAMES = 4;
 
 function hasHand(missing: Uint8Array): boolean {
@@ -45,15 +39,14 @@ export type RecorderState = "idle" | "recording" | "decoding" | "error";
 
 export interface FingerspellRecorder {
   state: RecorderState;
-  /** CTC-decoded phrase from the last completed recording. */
+  /** CTC-decoded phrase from the last completed recording */
   result: string;
-  /** Per-letter MLP outputs collected during the last recording, in order
-   *  with consecutive duplicates collapsed. del/space are kept as literal
-   *  tokens. */
+  /** Per-letter MLP outputs collected during the last recording, in order, with consecutive duplicates collapsed.
+   *  del/space are kept as literal tokens */
   letters: string[];
-  /** Number of hand-present frames captured so far in the current recording. */
+  /** Number of hand-present frames captured so far in the current recording */
   frameCount: number;
-  /** Non-fatal error message from the last decode attempt, if any. */
+  /** Non-fatal error message from the last decode attempt, if any */
   error: string | null;
   start: () => void;
   stop: () => void;
@@ -74,7 +67,11 @@ export function useFingerspellRecorder(
   const bufferRef = useRef<FrameSample[]>([]);
   const lettersRef = useRef<string[]>([]);
   const lastLetterRef = useRef<string>("-");
-  const wsRef = useRef<WebSocket | null>(null);
+
+  // Kick off the ~18 MB CTC model fetch early so the first recording doesn't pay the load cost
+  useEffect(() => {
+    warmupCTC().catch((err) => console.error("CTC warmup failed:", err));
+  }, []);
 
   const start = useCallback(() => {
     bufferRef.current = [];
@@ -98,7 +95,7 @@ export function useFingerspellRecorder(
     setState("idle");
   }, []);
 
-  // Push frames + collapse-collect MLP letters while recording.
+  // Push frames + collapse-collect MLP letters while recording
   useEffect(() => {
     if (state !== "recording" || !active || !detection) return;
     const { features, missing } = buildFrameFeatures(detection.landmarks);
@@ -112,7 +109,7 @@ export function useFingerspellRecorder(
     }
   }, [detection, liveSign, state, active]);
 
-  // Send buffer to CTC when the user stops.
+  // Decode buffer via in-browser CTC on stop
   const stop = useCallback(() => {
     if (state !== "recording") return;
     const buf = bufferRef.current;
@@ -133,67 +130,24 @@ export function useFingerspellRecorder(
       flatMissing.set(buf[t].missing, t * FRAME_LANDMARKS);
     }
 
-    const ws = new WebSocket(WS_ENDPOINTS.transcribeStream);
-    wsRef.current = ws;
-
-    const cleanup = () => {
-      if (wsRef.current === ws) wsRef.current = null;
-      try { ws.close(); } catch { /* ignore */ }
-    };
-
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          type: "decode",
-          frame_count: T,
-          features: Array.from(flatFeatures),
-          missing: Array.from(flatMissing, (b) => b !== 0),
-        }),
-      );
-    };
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "result") {
-          setResult(typeof data.text === "string" ? data.text : "");
-          setState("idle");
-        } else if (data.type === "error") {
-          setError(String(data.message ?? "CTC decode failed"));
-          setState("error");
-        }
-      } catch {
-        setError("Malformed response from CTC server");
+    transcribe(flatFeatures, flatMissing)
+      .then((text) => {
+        setResult(text);
+        setState("idle");
+      })
+      .catch((err) => {
+        console.error("CTC decode failed:", err);
+        setError(err instanceof Error ? err.message : String(err));
         setState("error");
-      }
-      cleanup();
-    };
-    ws.onerror = () => {
-      setError("Failed to reach the transcription service");
-      setState("error");
-      cleanup();
-    };
-    ws.onclose = () => {
-      // If we never received a result message and we're still in
-      // 'decoding', surface the silent close.
-      setState((s) => (s === "decoding" ? "error" : s));
-      if (wsRef.current === ws) wsRef.current = null;
-    };
+      });
   }, [state]);
 
-  // Stop recording if the camera goes inactive mid-record.
+  // Stop recording if the camera goes inactive mid-record
   useEffect(() => {
     if (!active && state === "recording") {
       setState("idle");
     }
   }, [active, state]);
-
-  // Close any open socket on unmount.
-  useEffect(() => () => {
-    if (wsRef.current) {
-      try { wsRef.current.close(); } catch { /* ignore */ }
-      wsRef.current = null;
-    }
-  }, []);
 
   return { state, result, letters, frameCount, error, start, stop, reset };
 }

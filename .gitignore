@@ -1,22 +1,18 @@
-# Python (backend)
-backend/venv/
-backend/.venv/
-backend/env/
-backend/__pycache__/
-backend/**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 
-# Environment files (secrets like ELEVENLABS_API_KEY)
+# Trained model artifacts (fetched/copied per setup README)
+frontend/public/models/*.onnx
+frontend/public/models/*.task
+frontend/public/models/*meta.json
+frontend/public/models/reference_landmarks.json
+
+# Environment files
 .env
 .env.local
 .env.*.local
-backend/.env
 frontend/.env
 
 # Editor / OS / agent state
