@@ -111,15 +111,16 @@ export function WebcamFeed({
     const video = videoEl.current;
     const videoW = video?.videoWidth ?? 0;
     const videoH = video?.videoHeight ?? 0;
-    if (videoW === 0 || videoH === 0) return;
 
+    // Clear unconditionally first so stale skeletons disappear even when the camera is off (video dims go to 0) or no hands are present
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (videoW === 0 || videoH === 0) return;
     if (canvas.width !== videoW) canvas.width = videoW;
     if (canvas.height !== videoH) canvas.height = videoH;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     for (const h of hands) drawHand(ctx, h, canvas.width, canvas.height);
-  }, [hands]);
+  }, [hands, status]);
 
   return (
     <div className="flex w-full flex-col items-center gap-3">

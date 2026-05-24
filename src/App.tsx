@@ -4,6 +4,7 @@ import { SignDisplay } from "./components/SignDisplay";
 import { TextOutput } from "./components/TextOutput";
 import { LearnPanel } from "./components/LearnPanel";
 import { SiteHeader } from "./components/SiteHeader";
+import { RecordIcon, StopIcon } from "./components/icons";
 import { useWebcam } from "./hooks/useWebcam";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { useSignDetection } from "./hooks/useSignDetection";
@@ -143,19 +144,21 @@ export default function App() {
                 recorder.state === "recording" ? (
                   <button
                     onClick={recorder.stop}
-                    className="flex shrink-0 items-center gap-2 rounded-xl bg-[#dc2626] px-[1.1rem] text-[0.85rem] font-medium text-white transition-opacity hover:opacity-85"
+                    aria-label="Stop recording"
+                    title="Stop recording"
+                    className="flex shrink-0 items-center justify-center w-12 rounded-xl bg-[#dc2626] text-white transition-opacity hover:opacity-85"
                   >
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
-                    Stop
+                    <StopIcon />
                   </button>
                 ) : (
                   <button
                     onClick={recorder.start}
                     disabled={recorder.state === "decoding"}
-                    className="flex shrink-0 items-center gap-2 rounded-xl bg-ink px-[1.1rem] text-[0.85rem] font-medium text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
+                    aria-label={recorder.state === "decoding" ? "Decoding" : "Record"}
+                    title={recorder.state === "decoding" ? "Decoding" : "Record"}
+                    className="flex shrink-0 items-center justify-center w-12 rounded-xl bg-ink text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
                   >
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" />
-                    {recorder.state === "decoding" ? "Decoding..." : "Record"}
+                    <RecordIcon />
                   </button>
                 )
               )}

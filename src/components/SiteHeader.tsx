@@ -8,14 +8,14 @@ interface Props {
 
 export function SiteHeader({ title, repo, modelRepo }: Props) {
   return (
-    <header className="flex h-16 items-baseline gap-4 border-b border-border-app bg-bg px-10 max-[700px]:px-5 max-[700px]:flex-col max-[700px]:items-start max-[700px]:py-3 max-[700px]:h-auto">
-      <div className="flex items-baseline gap-2">
+    <header className="flex h-16 items-center gap-4 border-b border-border-app bg-bg px-10 max-[700px]:px-5 max-[700px]:flex-col max-[700px]:items-start max-[700px]:py-3 max-[700px]:h-auto">
+      <div className="flex items-center gap-2">
         <span className="text-[1.05rem] font-semibold tracking-tight whitespace-nowrap">
           {title}
         </span>
         <span aria-hidden="true">🤟</span>
       </div>
-      <div className="ml-auto flex items-baseline gap-1.5 text-xs text-muted max-[700px]:ml-0">
+      <div className="ml-auto flex items-center gap-1.5 text-xs text-muted max-[700px]:ml-0">
         <GitHubIcon />
         <span>
           made by{" "}

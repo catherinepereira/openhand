@@ -17,6 +17,36 @@ export function CameraIcon() {
   );
 }
 
+/** Filled circle, record glyph */
+export function RecordIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="7" />
+    </svg>
+  );
+}
+
+/** Rounded square, stop glyph */
+export function StopIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+    </svg>
+  );
+}
+
 export function GitHubIcon() {
   return (
     <svg
