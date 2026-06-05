@@ -69,7 +69,14 @@ const GRADE_COLOR: Record<Grade, string> = {
   none: "#888",
 };
 
-export function LearnPanel({ detection, frameDetection, active, onExit, onStartCamera, onStopCamera }: Props) {
+export function LearnPanel({
+  detection,
+  frameDetection,
+  active,
+  onExit,
+  onStartCamera,
+  onStopCamera,
+}: Props) {
   const [refs, setRefs] = useState<ReferencePayload | null>(null);
   const [refsError, setRefsError] = useState<string | null>(null);
   const [target, setTarget] = useState<string>("A");
@@ -115,29 +122,31 @@ export function LearnPanel({ detection, frameDetection, active, onExit, onStartC
       <div className="flex items-center gap-3">
         <button
           onClick={onExit}
-          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
+          className="border-border-app text-ink hover:bg-surface rounded-lg border-[1.5px] px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium whitespace-nowrap transition-colors"
         >
           ← Back
         </button>
         <button
           onClick={active ? onStopCamera : onStartCamera}
-          className="whitespace-nowrap rounded-lg border-[1.5px] border-border-app px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium text-ink transition-colors hover:bg-surface"
+          className="border-border-app text-ink hover:bg-surface rounded-lg border-[1.5px] px-[1.1rem] py-[0.45rem] text-[0.85rem] font-medium whitespace-nowrap transition-colors"
         >
           {active ? "Stop camera" : "Start camera"}
         </button>
-        <h2 className="text-[1.3rem] font-semibold tracking-tight">Learn the letters</h2>
+        <h2 className="text-[1.3rem] font-semibold tracking-tight">
+          Learn the letters
+        </h2>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-border-app bg-bg px-4 py-[0.85rem]">
+      <div className="border-border-app bg-bg flex flex-col gap-2 rounded-[14px] border-[1.5px] px-4 py-[0.85rem]">
         <div className="label-caps text-[0.7rem]">REFERENCE - {target}</div>
-        <div className="relative h-[420px] overflow-hidden rounded-xl bg-surface max-[700px]:h-[300px]">
+        <div className="bg-surface relative h-[420px] overflow-hidden rounded-xl max-[700px]:h-[300px]">
           {refsError && (
             <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-[#b14242]">
               Could not load reference: {refsError}
             </div>
           )}
           {!refs && !refsError && (
-            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem] text-muted">
+            <div className="text-muted absolute inset-0 flex items-center justify-center p-4 text-center text-[0.9rem]">
               Loading reference poses...
             </div>
           )}
@@ -201,38 +210,43 @@ export function LearnPanel({ detection, frameDetection, active, onExit, onStartC
       </div>
 
       <div
-        className="flex items-center gap-[0.7rem] rounded-[10px] border-[1.5px] bg-bg px-4 py-[0.8rem] transition-colors"
+        className="bg-bg flex items-center gap-[0.7rem] rounded-[10px] border-[1.5px] px-4 py-[0.8rem] transition-colors"
         style={{ borderColor: GRADE_COLOR[grade] }}
       >
         <span
           className="h-3 w-3 shrink-0 rounded-full transition-colors"
           style={{ background: GRADE_COLOR[grade] }}
         />
-        <span className="text-[0.95rem] font-semibold">{GRADE_LABEL[grade]}</span>
+        <span className="text-[0.95rem] font-semibold">
+          {GRADE_LABEL[grade]}
+        </span>
         {isMotion ? (
-          <span className="ml-auto text-[0.85rem] text-muted">
-            {ctc.unavailable
-              ? "CTC model unavailable"
-              : detection.hands.length === 0
-                ? null
-                : ctc.latest
-                  ? <>decode <strong>{ctc.latest.slice(-1).toUpperCase()}</strong></>
-                  : "move your hand"}
+          <span className="text-muted ml-auto text-[0.85rem]">
+            {ctc.unavailable ? (
+              "CTC model unavailable"
+            ) : detection.hands.length === 0 ? null : ctc.latest ? (
+              <>
+                decode <strong>{ctc.latest.slice(-1).toUpperCase()}</strong>
+              </>
+            ) : (
+              "move your hand"
+            )}
           </span>
         ) : (
-          grade !== "none" && detection.sign !== "-" && (
-            <span className="ml-auto text-[0.85rem] text-muted">
-              detected <strong>{detection.sign}</strong>
-              {" "}({Math.round(detection.confidence * 100)}%)
+          grade !== "none" &&
+          detection.sign !== "-" && (
+            <span className="text-muted ml-auto text-[0.85rem]">
+              detected <strong>{detection.sign}</strong> (
+              {Math.round(detection.confidence * 100)}%)
             </span>
           )
         )}
       </div>
 
       {isMotion && (
-        <p className="px-1 text-[0.82rem] leading-relaxed text-muted">
-          {target} is a motion sign. Trace the letter in front of the
-          camera; we score on the CTC model's decode of the last ~2 seconds.
+        <p className="text-muted px-1 text-[0.82rem] leading-relaxed">
+          {target} is a motion sign. Trace the letter in front of the camera; we
+          score on the CTC model's decode of the last ~2 seconds.
         </p>
       )}
     </div>

@@ -13,7 +13,7 @@ import { FRAME_FEATURES, FRAME_LANDMARKS, GROUP_OFFSETS } from "./landmarks";
 const MODEL_URL = "/models/asl_ctc.onnx";
 const META_URL = "/models/asl_ctc_meta.json";
 
-const MAX_FRAMES = 256;        // matches training-time max_frames
+const MAX_FRAMES = 256; // matches training-time max_frames
 const DEFAULT_BEAM_WIDTH = 10;
 const NEG_INF = -1e30;
 const NORM_PERCENTILE = 95;
@@ -49,7 +49,9 @@ async function init(): Promise<void> {
   _meta = meta;
   _blankIdx = meta.blank_idx;
   // Dense lookup table for fast decode. Skip "<blank>" sentinel; emit "" for any unknown index
-  const maxIdx = Math.max(...Object.keys(meta.idx_to_char).map((k) => parseInt(k, 10)));
+  const maxIdx = Math.max(
+    ...Object.keys(meta.idx_to_char).map((k) => parseInt(k, 10)),
+  );
   _idxToChar = new Array(maxIdx + 1).fill("");
   for (const [k, v] of Object.entries(meta.idx_to_char)) {
     const i = parseInt(k, 10);
@@ -74,7 +76,11 @@ function percentile(values: Float32Array, p: number): number {
  * Per-sequence normalization.
  * Anchor on the more-present wrist's mean position, scale by p95 |coord| over present landmarks, re-zero missing
  */
-function normalizeSequence(features: Float32Array, missing: Uint8Array, T: number): Float32Array {
+function normalizeSequence(
+  features: Float32Array,
+  missing: Uint8Array,
+  T: number,
+): Float32Array {
   const out = new Float32Array(T * FRAME_FEATURES);
   out.set(features);
   // NaN -> 0; MediaPipe occasionally emits NaN on occluded landmarks
@@ -222,7 +228,8 @@ function beamSearchDecode(
           continue;
         }
 
-        const last = prefixIds.length > 0 ? prefixIds[prefixIds.length - 1] : null;
+        const last =
+          prefixIds.length > 0 ? prefixIds[prefixIds.length - 1] : null;
         if (s === last) {
           // Extend: pb -> new prefix
           const newPrefix = prefix + "," + s;

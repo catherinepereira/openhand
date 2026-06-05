@@ -26,11 +26,27 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
-  [0, 1], [1, 2], [2, 3], [3, 4],
-  [0, 5], [5, 6], [6, 7], [7, 8],
-  [5, 9], [9, 10], [10, 11], [11, 12],
-  [9, 13], [13, 14], [14, 15], [15, 16],
-  [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8],
+  [5, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12],
+  [9, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16],
+  [13, 17],
+  [0, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20],
 ];
 
 const BONE_COLOR = "rgba(60, 130, 240, 0.85)";
@@ -124,7 +140,7 @@ export function WebcamFeed({
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
-      <div className="relative flex aspect-[4/3] w-[min(760px,96%)] items-center justify-center overflow-hidden rounded-3xl border border-border-app bg-surface shadow-[0_2px_16px_rgba(0,0,0,0.05)]">
+      <div className="border-border-app bg-surface relative flex aspect-[4/3] w-[min(760px,96%)] items-center justify-center overflow-hidden rounded-3xl border shadow-[0_2px_16px_rgba(0,0,0,0.05)]">
         {status !== "active" && (
           <div className="absolute inset-0 flex items-center justify-center">
             <CameraIcon />
@@ -134,12 +150,15 @@ export function WebcamFeed({
           ref={setVideo}
           playsInline
           muted
-          className={`absolute inset-0 h-full w-full object-fill transition-opacity duration-300 [transform:scaleX(-1)] ${status === "active" ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 h-full w-full [transform:scaleX(-1)] object-fill transition-opacity duration-300 ${status === "active" ? "opacity-100" : "opacity-0"}`}
         />
-        <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+        <canvas
+          ref={overlayRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        />
 
         {status === "active" && (
-          <label className="absolute top-3 right-3 z-10 inline-flex cursor-pointer select-none items-center gap-[0.55rem] rounded-full bg-black/55 px-[0.65rem] py-[0.4rem] text-[0.78rem] font-medium text-white backdrop-blur-md">
+          <label className="absolute top-3 right-3 z-10 inline-flex cursor-pointer items-center gap-[0.55rem] rounded-full bg-black/55 px-[0.65rem] py-[0.4rem] text-[0.78rem] font-medium text-white backdrop-blur-md select-none">
             <span className="leading-none">Skeleton</span>
             <span className="relative inline-block h-4 w-[30px]">
               <input
@@ -154,14 +173,16 @@ export function WebcamFeed({
               />
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute left-[2px] top-[2px] h-3 w-3 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform peer-checked:translate-x-[14px]"
+                className="pointer-events-none absolute top-[2px] left-[2px] h-3 w-3 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform peer-checked:translate-x-[14px]"
               />
             </span>
           </label>
         )}
       </div>
-      <p className="flex items-center gap-[0.4rem] text-[0.82rem] text-muted">
-        <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${STATUS_DOT[status]}`} />
+      <p className="text-muted flex items-center gap-[0.4rem] text-[0.82rem]">
+        <span
+          className={`h-[7px] w-[7px] shrink-0 rounded-full ${STATUS_DOT[status]}`}
+        />
         {error ?? STATUS_LABEL[status]}
       </p>
     </div>

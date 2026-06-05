@@ -19,8 +19,7 @@ import {
 
 import type { NormalizedLandmark, RawFrameLandmarks } from "./landmarks";
 
-const WASM_BASE =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
+const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
 
 const TASK_URLS = {
   hand: "/models/hand_landmarker.task",
@@ -100,10 +99,14 @@ export interface FrameDetection {
 // Passing the <video> directly to MediaPipe samples it at the element's *display* size (CSS-scaled), which shifts landmark coordinates whenever that differs from the underlying stream's videoWidth/Height.
 // Drawing into a same-size canvas first keeps the coordinate space stable
 const _sampleCanvas: HTMLCanvasElement =
-  typeof document !== "undefined" ? document.createElement("canvas") : (null as never);
+  typeof document !== "undefined"
+    ? document.createElement("canvas")
+    : (null as never);
 let _sampleCtx: CanvasRenderingContext2D | null = null;
 
-function sampleVideoAtNativeRes(video: HTMLVideoElement): HTMLCanvasElement | null {
+function sampleVideoAtNativeRes(
+  video: HTMLVideoElement,
+): HTMLCanvasElement | null {
   const w = video.videoWidth;
   const h = video.videoHeight;
   if (w === 0 || h === 0) return null;

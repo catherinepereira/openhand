@@ -8,23 +8,30 @@ interface Props {
 
 export function SiteHeader({ title, repo, modelRepo }: Props) {
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border-app bg-bg px-10 max-[700px]:px-5 max-[700px]:flex-col max-[700px]:items-start max-[700px]:py-3 max-[700px]:h-auto">
+    <header className="border-border-app bg-bg flex h-16 items-center gap-4 border-b px-10 max-[700px]:h-auto max-[700px]:flex-col max-[700px]:items-start max-[700px]:px-5 max-[700px]:py-3">
       <div className="flex items-center gap-2">
         <span className="text-[1.05rem] font-semibold tracking-tight whitespace-nowrap">
           {title}
         </span>
         <span aria-hidden="true">🤟</span>
       </div>
-      <div className="ml-auto flex items-center gap-1.5 text-xs text-muted max-[700px]:ml-0">
+      <div className="text-muted ml-auto flex items-center gap-1.5 text-xs max-[700px]:ml-0">
         <GitHubIcon />
         <span>
           made by{" "}
-          <Link href="https://github.com/catherinepereira">catherinepereira</Link>
-          , code at <Link href={`https://github.com/catherinepereira/${repo}`}>{repo}</Link>
+          <Link href="https://github.com/catherinepereira">
+            catherinepereira
+          </Link>
+          , code at{" "}
+          <Link href={`https://github.com/catherinepereira/${repo}`}>
+            {repo}
+          </Link>
           {modelRepo && (
             <>
               , model at{" "}
-              <Link href={`https://github.com/catherinepereira/${modelRepo}`}>{modelRepo}</Link>
+              <Link href={`https://github.com/catherinepereira/${modelRepo}`}>
+                {modelRepo}
+              </Link>
             </>
           )}
         </span>
@@ -39,7 +46,7 @@ function Link({ href, children }: { href: string; children: React.ReactNode }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="underline underline-offset-2 hover:text-ink"
+      className="hover:text-ink underline underline-offset-2"
     >
       {children}
     </a>

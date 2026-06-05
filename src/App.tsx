@@ -42,7 +42,8 @@ export default function App() {
 
   // Don't accumulate while recording.
   // The recorder captures its own letter sequence, and the user is signing for the CTC decode, not the live bar
-  const accumulate = isActive && recorder.state !== "recording" && recorder.state !== "decoding";
+  const accumulate =
+    isActive && recorder.state !== "recording" && recorder.state !== "decoding";
 
   useEffect(() => {
     if (!accumulate) return;
@@ -56,14 +57,19 @@ export default function App() {
         if (sign === "del") next = prev.slice(0, -1);
         else if (sign === "space") next = prev + " ";
         else next = prev + sign;
-        return next.length > OUTPUT_MAX_CHARS ? next.slice(-OUTPUT_MAX_CHARS) : next;
+        return next.length > OUTPUT_MAX_CHARS
+          ? next.slice(-OUTPUT_MAX_CHARS)
+          : next;
       });
     }, SIGN_DEBOUNCE_MS);
   }, [liveResult.sign, accumulate]);
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
   // Camera start/stop is always user-driven via the manual toggle.
   // The Learn view works without the webcam (read-only reference browsing)
@@ -84,30 +90,32 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader title="OpenHand" repo="openhand" modelRepo="openhand-model" />
 
-      <main className="grid flex-1 grid-cols-2 border-b border-border-app max-[700px]:grid-cols-1">
-        <div className="flex flex-col gap-6 border-r border-border-app px-12 pt-16 pb-12 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app max-[700px]:px-6 max-[700px]:py-10">
+      <main className="border-border-app grid flex-1 grid-cols-2 border-b max-[700px]:grid-cols-1">
+        <div className="border-border-app max-[700px]:border-border-app flex flex-col gap-6 border-r px-12 pt-16 pb-12 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:px-6 max-[700px]:py-10">
           {view === "home" && (
             <>
-              <div className="inline-flex w-fit items-center rounded-full border-[1.5px] border-border-app px-3 py-[0.35rem] text-[0.72rem] font-semibold tracking-widest text-muted">
+              <div className="border-border-app text-muted inline-flex w-fit items-center rounded-full border-[1.5px] px-3 py-[0.35rem] text-[0.72rem] font-semibold tracking-widest">
                 OPEN SOURCE · REAL-TIME
               </div>
-              <h1 className="text-[clamp(2.4rem,4vw,3.2rem)] font-normal leading-[1.1] tracking-tight">
-                ASL fingerspelling,<br />
+              <h1 className="text-[clamp(2.4rem,4vw,3.2rem)] leading-[1.1] font-normal tracking-tight">
+                ASL fingerspelling,
+                <br />
                 <strong className="font-bold">to text.</strong>
               </h1>
               <p className="max-w-[38ch] text-[0.95rem] leading-[1.65] text-[#555]">
-                OpenHand reads ASL fingerspelling from your webcam and transcribes it in real time, all in the browser.
+                OpenHand reads ASL fingerspelling from your webcam and
+                transcribes it in real time, all in the browser.
               </p>
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={isActive ? stop : start}
-                  className="rounded-[9px] bg-ink px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium text-white transition-opacity hover:opacity-80"
+                  className="bg-ink rounded-[9px] px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium text-white transition-opacity hover:opacity-80"
                 >
                   {isActive ? "Stop camera" : "Start camera"}
                 </button>
                 <button
                   onClick={enterLearn}
-                  className="rounded-[9px] border-[1.5px] border-border-app bg-bg px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors hover:bg-surface"
+                  className="border-border-app bg-bg hover:bg-surface rounded-[9px] border-[1.5px] px-[1.4rem] py-[0.6rem] text-[0.88rem] font-medium transition-colors"
                 >
                   Learn the letters
                 </button>
@@ -126,7 +134,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-6 bg-bg px-8 py-12 max-[700px]:px-6 max-[700px]:py-8">
+        <div className="bg-bg flex flex-col items-center justify-center gap-6 px-8 py-12 max-[700px]:px-6 max-[700px]:py-8">
           <WebcamFeed
             videoRef={videoRef}
             status={status}
@@ -136,17 +144,20 @@ export default function App() {
             onShowSkeletonChange={setShowSkeleton}
           />
 
-          <SignDisplay sign={liveResult.sign} confidence={liveResult.confidence} />
+          <SignDisplay
+            sign={liveResult.sign}
+            confidence={liveResult.confidence}
+          />
 
           {(isActive || outputText) && (
             <div className="flex w-full max-w-[min(760px,96%)] items-stretch gap-3">
-              {isActive && (
-                recorder.state === "recording" ? (
+              {isActive &&
+                (recorder.state === "recording" ? (
                   <button
                     onClick={recorder.stop}
                     aria-label="Stop recording"
                     title="Stop recording"
-                    className="flex shrink-0 items-center justify-center w-12 rounded-xl bg-[#dc2626] text-white transition-opacity hover:opacity-85"
+                    className="flex w-12 shrink-0 items-center justify-center rounded-xl bg-[#dc2626] text-white transition-opacity hover:opacity-85"
                   >
                     <StopIcon />
                   </button>
@@ -154,14 +165,17 @@ export default function App() {
                   <button
                     onClick={recorder.start}
                     disabled={recorder.state === "decoding"}
-                    aria-label={recorder.state === "decoding" ? "Decoding" : "Record"}
-                    title={recorder.state === "decoding" ? "Decoding" : "Record"}
-                    className="flex shrink-0 items-center justify-center w-12 rounded-xl bg-ink text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
+                    aria-label={
+                      recorder.state === "decoding" ? "Decoding" : "Record"
+                    }
+                    title={
+                      recorder.state === "decoding" ? "Decoding" : "Record"
+                    }
+                    className="bg-ink flex w-12 shrink-0 items-center justify-center rounded-xl text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
                   >
                     <RecordIcon />
                   </button>
-                )
-              )}
+                ))}
               <div className="min-w-0 flex-1">
                 <TextOutput text={outputText} onClear={handleClear} />
               </div>
@@ -169,19 +183,25 @@ export default function App() {
           )}
 
           {recorder.error && (
-            <span className="text-[0.8rem] text-[#b14242]">{recorder.error}</span>
+            <span className="text-[0.8rem] text-[#b14242]">
+              {recorder.error}
+            </span>
           )}
         </div>
       </main>
 
-      <footer className="mt-auto grid grid-cols-2 border-t border-border-app max-[700px]:grid-cols-1">
-        <div className="flex flex-col gap-[0.3rem] border-r border-border-app px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:border-border-app">
+      <footer className="border-border-app mt-auto grid grid-cols-2 border-t max-[700px]:grid-cols-1">
+        <div className="border-border-app max-[700px]:border-border-app flex flex-col gap-[0.3rem] border-r px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b">
           <span className="label-caps">DETECTION</span>
-          <span className="text-[0.95rem] font-medium text-ink">MediaPipe Hand + Pose + Face (JS)</span>
+          <span className="text-ink text-[0.95rem] font-medium">
+            MediaPipe Hand + Pose + Face (JS)
+          </span>
         </div>
         <div className="flex flex-col gap-[0.3rem] px-10 py-[1.4rem]">
           <span className="label-caps">CLASSIFICATION</span>
-          <span className="text-[0.95rem] font-medium text-ink">MLP + CTC, ONNX in WASM</span>
+          <span className="text-ink text-[0.95rem] font-medium">
+            MLP + CTC, ONNX in WASM
+          </span>
         </div>
       </footer>
     </div>

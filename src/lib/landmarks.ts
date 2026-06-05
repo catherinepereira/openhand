@@ -11,13 +11,11 @@
  *   - {@link buildFrameFeatures} consumes a typed {@link RawFrameLandmarks} bag with one property per group, so swapping inputs becomes a compile error instead of a runtime slot mix-up
  */
 
-
 /** 40 lip outline indices on the MediaPipe FaceMesh */
 export const LIPS_IDX = [
-  61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
-  291, 146, 91, 181, 84, 17, 314, 405, 321, 375,
-  78, 191, 80, 81, 82, 13, 312, 311, 310, 415,
-  95, 88, 178, 87, 14, 317, 402, 318, 324, 308,
+  61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 146, 91, 181, 84, 17, 314,
+  405, 321, 375, 78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 95, 88, 178, 87,
+  14, 317, 402, 318, 324, 308,
 ] as const;
 
 /** 16 left-eye outline indices on the MediaPipe FaceMesh */
@@ -27,7 +25,8 @@ export const LEFT_EYE_IDX = [
 
 /** 16 right-eye outline indices on the MediaPipe FaceMesh */
 export const RIGHT_EYE_IDX = [
-  362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398,
+  362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384,
+  398,
 ] as const;
 
 /** 4 nose bridge indices on the MediaPipe FaceMesh */
@@ -52,7 +51,12 @@ export type LandmarkGroup = "face" | "pose" | "leftHand" | "rightHand";
  * Face is composed of four sub-regions concatenated; pose and the two hands are flat.
  * This order must match the training-time concatenation in landmarks.py exactly
  */
-const FACE_SUBGROUPS = [LIPS_IDX, LEFT_EYE_IDX, RIGHT_EYE_IDX, NOSE_IDX] as const;
+const FACE_SUBGROUPS = [
+  LIPS_IDX,
+  LEFT_EYE_IDX,
+  RIGHT_EYE_IDX,
+  NOSE_IDX,
+] as const;
 const FACE_INDICES: readonly number[] = FACE_SUBGROUPS.flatMap((g) => [...g]);
 
 /**
@@ -87,7 +91,10 @@ export const GROUP_OFFSETS: Record<LandmarkGroup, number> = (() => {
 
 /** Total landmark count across all groups: 40+16+16+4 + 9 + 21 + 21 = 127 */
 export const FRAME_LANDMARKS: number =
-  GROUP_SIZES.face + GROUP_SIZES.pose + GROUP_SIZES.leftHand + GROUP_SIZES.rightHand;
+  GROUP_SIZES.face +
+  GROUP_SIZES.pose +
+  GROUP_SIZES.leftHand +
+  GROUP_SIZES.rightHand;
 
 /** Total floats per frame: 3 (xyz) * FRAME_LANDMARKS = 381 */
 export const FRAME_FEATURES: number = FRAME_LANDMARKS * 3;
@@ -170,4 +177,3 @@ if (GROUP_OFFSETS.rightHand + GROUP_SIZES.rightHand !== FRAME_LANDMARKS) {
     }, expected ${FRAME_LANDMARKS}`,
   );
 }
-

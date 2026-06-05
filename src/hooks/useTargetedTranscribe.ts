@@ -79,7 +79,10 @@ export function useTargetedTranscribe(
     if (!active || !detection) return;
     const { features, missing } = buildFrameFeatures(detection.landmarks);
     if (!hasHand(missing)) {
-      if (lastHandTimeRef.current && performance.now() - lastHandTimeRef.current > 2000) {
+      if (
+        lastHandTimeRef.current &&
+        performance.now() - lastHandTimeRef.current > 2000
+      ) {
         if (bufferRef.current.length > 0) bufferRef.current = [];
         setLatest((cur) => (cur ? "" : cur));
       }

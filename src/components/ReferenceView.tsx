@@ -18,7 +18,11 @@ function isVideoPath(src: string): boolean {
   return VIDEO_EXTS.some((ext) => lower.endsWith(ext));
 }
 
-export function ReferenceView({ imageSrc, animation, initialMode = "media" }: Props) {
+export function ReferenceView({
+  imageSrc,
+  animation,
+  initialMode = "media",
+}: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [mediaMissing, setMediaMissing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -58,7 +62,7 @@ export function ReferenceView({ imageSrc, animation, initialMode = "media" }: Pr
           )}
         </div>
       )}
-      <div className="absolute right-2 top-2 flex overflow-hidden rounded-md border-[1.5px] border-border-app bg-bg/90 text-[0.72rem] font-medium backdrop-blur">
+      <div className="border-border-app bg-bg/90 absolute top-2 right-2 flex overflow-hidden rounded-md border-[1.5px] text-[0.72rem] font-medium backdrop-blur">
         <button
           onClick={() => setMode("media")}
           disabled={mediaMissing}

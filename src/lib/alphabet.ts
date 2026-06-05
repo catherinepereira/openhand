@@ -106,7 +106,9 @@ export interface AlphabetResult {
  * Run inference on the right hand of a frame.
  * Returns "-" with 0 confidence if no right hand is detected, or if the best class is below MIN_CONFIDENCE
  */
-export async function classifyHand(hands: readonly DetectedHand[]): Promise<AlphabetResult> {
+export async function classifyHand(
+  hands: readonly DetectedHand[],
+): Promise<AlphabetResult> {
   if (!_session || !_meta) await init();
   if (!hands.length) return { sign: "-", confidence: 0.0 };
 
@@ -132,9 +134,11 @@ export async function classifyHand(hands: readonly DetectedHand[]): Promise<Alph
   const probs = softmax(logitsTensor.data as Float32Array);
 
   let bestIdx = 0;
-  for (let i = 1; i < probs.length; i++) if (probs[i] > probs[bestIdx]) bestIdx = i;
+  for (let i = 1; i < probs.length; i++)
+    if (probs[i] > probs[bestIdx]) bestIdx = i;
   const confidence = probs[bestIdx];
-  const sign = confidence >= MIN_CONFIDENCE ? meta.label_map[String(bestIdx)] : "-";
+  const sign =
+    confidence >= MIN_CONFIDENCE ? meta.label_map[String(bestIdx)] : "-";
   return { sign, confidence };
 }
 

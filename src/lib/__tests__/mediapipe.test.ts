@@ -11,7 +11,11 @@ import { splitHands } from "../mediapipe";
 import type { NormalizedLandmark } from "../landmarks";
 
 function makeHand(x: number): NormalizedLandmark[] {
-  return Array.from({ length: 21 }, (_, i) => ({ x: x + i * 0.001, y: 0.5, z: 0 }));
+  return Array.from({ length: 21 }, (_, i) => ({
+    x: x + i * 0.001,
+    y: 0.5,
+    z: 0,
+  }));
 }
 
 /** Build a minimal HandLandmarkerResult-shaped object */

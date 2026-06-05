@@ -40,7 +40,9 @@ export function useSignDetection(
   const inflightRef = useRef(false);
 
   useEffect(() => {
-    warmup().catch((err) => console.error("Alphabet model warmup failed:", err));
+    warmup().catch((err) =>
+      console.error("Alphabet model warmup failed:", err),
+    );
   }, []);
 
   useEffect(() => {

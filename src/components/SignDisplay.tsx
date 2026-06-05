@@ -27,21 +27,29 @@ export function SignDisplay({ sign, confidence }: Props) {
     }, CONFIDENCE_UPDATE_MS - elapsed);
   }, [confidence]);
 
-  useEffect(() => () => {
-    if (pendingRef.current) clearTimeout(pendingRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+    },
+    [],
+  );
 
-  const pct = displayConfidence > 0 ? `${Math.round(displayConfidence * 100)}%` : "-";
+  const pct =
+    displayConfidence > 0 ? `${Math.round(displayConfidence * 100)}%` : "-";
 
   return (
     <div className="flex w-full max-w-[360px] gap-3">
-      <div className="flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] border-border-app bg-bg px-[1.2rem] py-4">
+      <div className="border-border-app bg-bg flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] px-[1.2rem] py-4">
         <span className="label-caps">DETECTED</span>
-        <span className="text-[1.6rem] font-light tracking-tight text-ink">{sign}</span>
+        <span className="text-ink text-[1.6rem] font-light tracking-tight">
+          {sign}
+        </span>
       </div>
-      <div className="flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] border-border-app bg-bg px-[1.2rem] py-4">
+      <div className="border-border-app bg-bg flex flex-1 flex-col gap-[0.4rem] rounded-[14px] border-[1.5px] px-[1.2rem] py-4">
         <span className="label-caps">CONFIDENCE</span>
-        <span className="text-[1.6rem] font-light tracking-tight text-ink">{pct}</span>
+        <span className="text-ink text-[1.6rem] font-light tracking-tight">
+          {pct}
+        </span>
       </div>
     </div>
   );

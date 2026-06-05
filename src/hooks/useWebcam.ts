@@ -23,10 +23,13 @@ export function useWebcam() {
     }
   }, []);
 
-  const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
-    videoRef.current = el;
-    attachStreamTo(el);
-  }, [attachStreamTo]);
+  const setVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      attachStreamTo(el);
+    },
+    [attachStreamTo],
+  );
 
   const start = async () => {
     setStatus("requesting");
@@ -52,7 +55,12 @@ export function useWebcam() {
     setStatus("idle");
   };
 
-  useEffect(() => () => { stop(); }, []);
+  useEffect(
+    () => () => {
+      stop();
+    },
+    [],
+  );
 
   return {
     /** Pass to JSX: `<video ref={videoRef} />`.
