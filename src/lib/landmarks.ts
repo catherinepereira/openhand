@@ -2,7 +2,7 @@
  * 127-landmark selection for the CTC fingerspelling and isolated-sign models
  *
  * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py
- * If the order here drifts from training time, the model will start producing nonsens
+ * If the order here drifts from training time, the model will start producing nonsense
  *
  * Type-level design:
  *   - {@link LandmarkGroup} enumerates the four input groups
