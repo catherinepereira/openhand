@@ -10,7 +10,7 @@ import { transcribe, warmup as warmupCTC } from "../lib/ctc";
 import type { FrameDetection } from "../lib/mediapipe";
 
 /**
- * User-driven fingerspelling recorder.
+ * User-driven fingerspelling recorder
  *
  * While recording, every MediaPipe frame with a visible hand pushes a (features, missing) sample into a buffer, and the latest per-letter MLP sign is appended to a parallel sequence.
  * On stop(), the full landmark buffer is run through the CTC model client-side and the decoded phrase is returned via `result`

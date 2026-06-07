@@ -1,12 +1,11 @@
 /**
- * Browser-side MediaPipe Tasks API wrapper.
+ * Browser-side MediaPipe Tasks API wrapper
  *
  * Initializes three detectors (Hand, Pose, Face) once, then exposes per-frame
  * extraction functions that produce typed landmark bundles matching the shape
- * landmarks.ts expects.
+ * landmarks.ts expects
  *
- * The three .task files are served by Vite from /models/ (copied at setup
- * time from openhand/backend/models/artifacts/).
+ * The three .task files are served by Vite from /models/ 
  */
 
 import {
@@ -27,7 +26,7 @@ const TASK_URLS = {
   face: "/models/face_landmarker.task",
 } as const;
 
-// Minimum detection / presence confidences.
+// Minimum detection / presence confidences
 // Tuned low so the detector keeps tracking through partial occlusion (e.g. fingers crossing) instead of dropping the hand frame
 const MIN_CONFIDENCE = 0.3;
 
@@ -43,8 +42,8 @@ export interface MediaPipeDetectors {
  * Create all three detectors in parallel. Resolves once the .task files
  * have been downloaded and the WebAssembly fileset is ready.
  *
- * Pass `running: "video"` (the default) for live-frame use; "image" for
- * one-shot stills.
+ * Pass `running: "video"` (the default) for live video feeds
+ * or use "image" for one-shot stills
  */
 export async function createDetectors(
   running: "video" | "image" = "image",
@@ -95,9 +94,9 @@ export interface FrameDetection {
   landmarks: RawFrameLandmarks;
 }
 
-// Reusable offscreen canvas for sampling the video at its native source resolution.
+// Reusable offscreen canvas for sampling the video at its native source resolution
 // Passing the <video> directly to MediaPipe samples it at the element's *display* size (CSS-scaled), which shifts landmark coordinates whenever that differs from the underlying stream's videoWidth/Height.
-// Drawing into a same-size canvas first keeps the coordinate space stable
+// Drawing into a same-size canvas first keeps the coordinate space stable. VERY IMPORTANT!
 const _sampleCanvas: HTMLCanvasElement =
   typeof document !== "undefined"
     ? document.createElement("canvas")
@@ -121,7 +120,7 @@ function sampleVideoAtNativeRes(
 /**
  * Run all three detectors on the same video frame and package the output into the shape landmarks.ts expects.
  *
- * Uses IMAGE-mode detect() so each frame is treated independently; this avoids the coordinate drift VIDEO mode introduces when frames arrive out of order.
+ * Uses IMAGE-mode detect() so each frame is treated independently. This avoids the coordinate drift VIDEO mode introduces when frames arrive out of order.
  *
  * timestampMs is unused in IMAGE mode but kept in the signature so callers don't have to change if the mode flips later
  */
@@ -159,7 +158,7 @@ function firstOrNull<T>(arr: readonly T[] | undefined): T | null {
 }
 
 /**
- * Split the (up to 2) detected hands into a left + right pair using MediaPipe's handedness classifier.
+ * Split the (up to 2) detected hands into a left + right pair using MediaPipe's handedness classifier
  *
  * Camera-POV "left/right": a right-handed user with a non-mirrored feed has their right hand appear on the camera's left side, so MediaPipe labels it "Left"
  */

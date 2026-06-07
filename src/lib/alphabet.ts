@@ -1,7 +1,7 @@
 /**
- * Browser-side ASL alphabet MLP.
+ * Browser-side ASL alphabet MLP
  *
- * Loads asl_classifier.onnx and model_meta.json from /models/, normalizes 21 hand landmarks (wrist anchor + p95 |value| scale), runs onnxruntime-web, and returns the predicted letter + confidence.
+ * Loads asl_classifier.onnx and model_meta.json from /models/, normalizes 21 hand landmarks (wrist anchor + p95 |value| scale), runs onnxruntime-web, and returns the predicted letter + confidence
  *
  * MUST stay in sync with openhand-model/alphabet/scripts/preprocess_alphabet.py, which uses the same normalization at training time
  */
@@ -103,7 +103,7 @@ export interface AlphabetResult {
 }
 
 /**
- * Run inference on the right hand of a frame.
+ * Run inference on the right hand of a frame
  * Returns "-" with 0 confidence if no right hand is detected, or if the best class is below MIN_CONFIDENCE
  */
 export async function classifyHand(
@@ -142,7 +142,7 @@ export async function classifyHand(
   return { sign, confidence };
 }
 
-/** Eagerly start loading the model so first inference doesn't pay the cost */
+/** Load model early */
 export function warmup(): Promise<void> {
   return init();
 }

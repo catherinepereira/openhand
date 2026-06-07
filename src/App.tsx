@@ -11,8 +11,7 @@ import { useSignDetection } from "./hooks/useSignDetection";
 import { useFingerspellRecorder } from "./hooks/useFingerspellRecorder";
 import "./App.css";
 
-// How long a letter must remain the live prediction before it's committed to the accumulator.
-// Stops the field from rattling on momentary mid-sign frames
+// How long a letter must remain the live prediction before it's committed to the accumulator
 const SIGN_DEBOUNCE_MS = 800;
 const OUTPUT_MAX_CHARS = 80;
 
@@ -26,21 +25,21 @@ export default function App() {
   const { detection } = useMediaPipe(videoElementRef, isActive);
   const { result: liveResult } = useSignDetection(detection, isActive);
 
-  // Recording session.
-  // While recording, every hand-present MediaPipe frame is buffered and the live MLP letter is collapse-appended.
+  // Recording session
+  // While recording, every hand-present MediaPipe frame is buffered and the live MLP letter is appended
   // On stop, the full landmark buffer is sent to the CTC model in one shot for a clean phrase decode
   const recorder = useFingerspellRecorder(detection, liveResult.sign, isActive);
 
   const [showSkeleton, setShowSkeleton] = useState(true);
 
-  // Live letter accumulator.
-  // Visible in OUTPUT whenever there isn't a completed CTC result.
-  // A finished recording overwrites the displayed text - clear resets both back to empty
+  // Live letter accumulator
+  // Visible in OUTPUT whenever there isn't a completed CTC result
+  // A finished recording overwrites the displayed text and clear resets both back to empty
   const [accumulated, setAccumulated] = useState("");
   const lastCommittedRef = useRef<string>("-");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Don't accumulate while recording.
+  // Don't accumulate while recording
   // The recorder captures its own letter sequence, and the user is signing for the CTC decode, not the live bar
   const accumulate =
     isActive && recorder.state !== "recording" && recorder.state !== "decoding";
@@ -71,7 +70,7 @@ export default function App() {
     [],
   );
 
-  // Camera start/stop is always user-driven via the manual toggle.
+  // Camera start/stop is always user-driven via the manual toggle
   // The Learn view works without the webcam (read-only reference browsing)
   const enterLearn = useCallback(() => setView("learn"), []);
 
@@ -83,7 +82,7 @@ export default function App() {
     lastCommittedRef.current = "-";
   }, [recorder]);
 
-  // Recording result wins otherwise show the live accumulation
+  // Recording result comes first otherwise show the live accumulation
   const outputText = recorder.result || accumulated;
 
   return (
@@ -100,7 +99,7 @@ export default function App() {
               <h1 className="text-[clamp(2.4rem,4vw,3.2rem)] leading-[1.1] font-normal tracking-tight">
                 ASL fingerspelling,
                 <br />
-                <strong className="font-bold">to text.</strong>
+                to text.
               </h1>
               <p className="max-w-[38ch] text-[0.95rem] leading-[1.65] text-[#555]">
                 OpenHand reads ASL fingerspelling from your webcam and
@@ -194,13 +193,13 @@ export default function App() {
         <div className="border-border-app max-[700px]:border-border-app flex flex-col gap-[0.3rem] border-r px-10 py-[1.4rem] max-[700px]:border-r-0 max-[700px]:border-b">
           <span className="label-caps">DETECTION</span>
           <span className="text-ink text-[0.95rem] font-medium">
-            MediaPipe Hand + Pose + Face (JS)
+            MediaPipe Hand + Pose + Face Landmarks (JS)
           </span>
         </div>
         <div className="flex flex-col gap-[0.3rem] px-10 py-[1.4rem]">
           <span className="label-caps">CLASSIFICATION</span>
           <span className="text-ink text-[0.95rem] font-medium">
-            MLP + CTC, ONNX in WASM
+            MLP + CTC in ONNX Runtime Web
           </span>
         </div>
       </footer>

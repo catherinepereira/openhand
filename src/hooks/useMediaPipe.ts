@@ -6,11 +6,11 @@ import {
   type MediaPipeDetectors,
 } from "../lib/mediapipe";
 
-/** Frame cadence for MediaPipe detection: 10 fps */
+/** Frame intervalfor MediaPipe detection: 10 fps */
 const FRAME_INTERVAL_MS = 100;
 
 /**
- * Shared MediaPipe producer.
+ * Shared MediaPipe producer
  * Initializes Hand/Pose/Face detectors once for the page lifetime, runs them on every webcam frame, and exposes the latest detection as React state.
  * The state is null until the detectors finish loading and the first frame is processed
  */

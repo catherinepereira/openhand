@@ -1,13 +1,13 @@
 /**
- * 127-landmark selection for the CTC fingerspelling and isolated-sign models.
+ * 127-landmark selection for the CTC fingerspelling and isolated-sign models
  *
- * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py.
- * The CTC ONNX has no idea what any of these slots mean; if the order here drifts from training time, the model silently produces nonsense.
+ * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py
+ * If the order here drifts from training time, the model will start producing nonsens
  *
  * Type-level design:
- *   - {@link LandmarkGroup} enumerates the four input groups.
- *   - {@link GROUP_INDICES} is the single source of truth for which raw MediaPipe indices each slot uses, in canonical order.
- *   - {@link FRAME_FEATURES} (= 381) and {@link FRAME_LANDMARKS} (= 127) are derived; bumping the input lists updates both.
+ *   - {@link LandmarkGroup} enumerates the four input groups
+ *   - {@link GROUP_INDICES} is the single source of truth for which raw MediaPipe indices each slot uses, in canonical order
+ *   - {@link FRAME_FEATURES} (= 381) and {@link FRAME_LANDMARKS} (= 127) are derived so bumping the input lists updates both
  *   - {@link buildFrameFeatures} consumes a typed {@link RawFrameLandmarks} bag with one property per group, so swapping inputs becomes a compile error instead of a runtime slot mix-up
  */
 

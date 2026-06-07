@@ -22,10 +22,10 @@ function hasHand(missing: Uint8Array): boolean {
 }
 
 /**
- * Rolling-window CTC decode for the Learn screen's J/Z grading.
- * Keeps a ~4s buffer of hand-present frames and re-decodes on a timer.
+ * Rolling-window CTC decode for the Learn screen's J/Z grading
+ * Keeps a ~4s buffer of hand-present frames and re-decodes on a timer
  *
- * Runs CTC client-side via lib/ctc.ts.
+ * Runs CTC client-side via lib/ctc.ts
  * Beam=3 instead of the default 10 because this fires every cadence tick and the latency budget is tighter
  */
 const CONFIG = {
@@ -73,7 +73,7 @@ export function useTargetedTranscribe(
     }
   }, [active]);
 
-  // Push hand-present frames into the rolling buffer.
+  // Push hand-present frames into the rolling buffer
   // After 2s of no hand, clear the buffer + displayed text so what's on screen reflects current intent
   useEffect(() => {
     if (!active || !detection) return;

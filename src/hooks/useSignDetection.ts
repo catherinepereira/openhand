@@ -23,7 +23,7 @@ export interface DetectionResult {
 }
 
 /**
- * Live per-frame letter detection.
+ * Live per-frame letter detection
  * Runs the alphabet MLP in-browser via onnxruntime-web on each MediaPipe detection
  */
 export function useSignDetection(
@@ -35,8 +35,8 @@ export function useSignDetection(
     confidence: 0,
     hands: [],
   });
-  // Only one classify in flight at a time.
-  // Frames arriving during inference are dropped; the next frame catches up
+  // Only one classification process at a time
+  // Frames arriving during inference are dropped
   const inflightRef = useRef(false);
 
   useEffect(() => {

@@ -3,7 +3,7 @@ import { OrbitControls } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
-// MediaPipe hand topology: 21 landmarks per hand, indexed 0..20.
+// MediaPipe hand topology: 21 landmarks per hand, indexed 0..20
 // Connections form the 5 fingers + palm; same set used by WebcamFeed.tsx
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
@@ -37,8 +37,9 @@ interface Props {
 }
 
 /**
- * Convert the flat 63-float MediaPipe vector to 21 THREE.Vector3 points.
- * MediaPipe is x-right, y-down, z-toward-camera; y is flipped here so the hand stands upright in Three.js's default y-up world
+ * Convert the flat 63-float MediaPipe vector to 21 THREE.Vector3 points
+ * MediaPipe is x-right, y-down, z-toward-camera
+ * y is flipped here so the hand stands upright in Three.js's default y-up world
  */
 function toPoints(landmarks: ReadonlyArray<number>): THREE.Vector3[] {
   const pts: THREE.Vector3[] = [];

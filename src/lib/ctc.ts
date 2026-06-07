@@ -1,10 +1,11 @@
 /**
- * Browser-side CTC fingerspelling decoder.
+ * Browser-side CTC fingerspelling decoder
  *
- * Loads asl_ctc.onnx (~18 MB) lazily on first use, normalizes the holistic landmark clip, runs onnxruntime-web, and decodes with prefix beam search.
+ * Loads asl_ctc.onnx (~18 MB) lazily on first use, normalizes the holistic landmark clip, runs onnxruntime-web, and decodes with prefix beam search
  *
- * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py (training-side normalization).
- * The "missing" mask is part of the contract: an explicit per-landmark bool, not zero-equality
+ * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py (training-side normalization)
+ * Always pass the "missing" mask (one bool per landmark) to mark absent landmarks
+ * It isn't the same as frames with coordinates equaling zero because zero is a possible position
  */
 
 import * as ort from "onnxruntime-web";
@@ -48,7 +49,9 @@ async function init(): Promise<void> {
   _session = session;
   _meta = meta;
   _blankIdx = meta.blank_idx;
-  // Dense lookup table for fast decode. Skip "<blank>" sentinel; emit "" for any unknown index
+  // Dense lookup table for fast decode
+  // Skip "<blank>" sentinel
+  // Emit "" for any unknown index
   const maxIdx = Math.max(
     ...Object.keys(meta.idx_to_char).map((k) => parseInt(k, 10)),
   );
@@ -187,9 +190,10 @@ function topK(lp: Float32Array, k: number): number[] {
 }
 
 /**
- * CTC prefix beam search.
- * logProbs: (T, V) flat row-major; V = vocab incl. blank.
- * Prefix keys are joined comma-separated id strings; JS Map keys hash by-identity for objects, so a string key is the cheap way to dedupe
+ * CTC prefix beam search
+ * logProbs: (T, V) flat row-major; V = vocab incl. blank
+ * Prefix keys are joined comma-separated id strings
+ * JS Map keys hash by-identity for objects, so a string key is the cheap way to dedupe
  */
 function beamSearchDecode(
   logProbs: Float32Array,
@@ -308,10 +312,10 @@ export interface CTCOptions {
 }
 
 /**
- * Transcribe a hand-frame buffer to text.
+ * Transcribe a hand-frame buffer to text
  *
- * features: flat Float32Array of length T * FRAME_FEATURES, row-major.
- * missing:  flat Uint8Array of length T * FRAME_LANDMARKS (1 = missing).
+ * features: flat Float32Array of length T * FRAME_FEATURES, row-major
+ * missing:  flat Uint8Array of length T * FRAME_LANDMARKS (1 = missing)
  *
  * The dynamo-exported ONNX needs batch >= 2 to keep the batch axis dynamic, so it's padded with an all-zero, fully-masked second item that's discarded after inference
  */
@@ -375,13 +379,13 @@ export async function transcribe(
   const outB = dims[1];
   const V = dims[2];
   if (outB !== 2 || outT !== T) {
-    // Shape drift would be a config mismatch -- fail loudly
+    // Shape drift would be a config mismatch
     throw new Error(
       `CTC output shape ${dims.join("x")} does not match expected (${T}, 2, V)`,
     );
   }
 
-  // Extract batch index 0 (real input).
+  // Extract batch index 0
   // Flat layout is row-major (T, B, V), so for batch b at time t the offset is (t * B + b) * V
   const lp = new Float32Array(T * V);
   for (let t = 0; t < T; t++) {
@@ -392,7 +396,7 @@ export async function transcribe(
   return beamSearchDecode(lp, T, V, _blankIdx, beamWidth);
 }
 
-/** Eagerly start loading the CTC model. ~18 MB so do this off the main flow */
+/** Load model but only when using transcription as this is a bigger model */
 export function warmup(): Promise<void> {
   return init();
 }
