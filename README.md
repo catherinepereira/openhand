@@ -1,5 +1,7 @@
 # OpenHand
 
+<img width="600" src="https://i.ibb.co/Cpp2CvdS/Screenshot-2026-06-08-134011.png" alt="OpenHand" />
+
 Point a webcam at your hand and get text back. OpenHand reads American Sign Language fingerspelling and transcribes it in the browser. MediaPipe extracts landmarks and ONNX models classify them.
 
 Two recognition paths:

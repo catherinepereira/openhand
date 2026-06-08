@@ -90,7 +90,7 @@ export default function App() {
       <SiteHeader title="OpenHand" repo="openhand" modelRepo="openhand-model" />
 
       <main className="border-border-app grid flex-1 grid-cols-2 border-b max-[700px]:grid-cols-1">
-        <div className="border-border-app max-[700px]:border-border-app flex flex-col gap-6 border-r px-12 pt-16 pb-12 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:px-6 max-[700px]:py-10">
+        <div className="border-border-app max-[700px]:border-border-app flex flex-col justify-center gap-6 border-r px-12 py-16 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:px-6 max-[700px]:py-10">
           {view === "home" && (
             <>
               <div className="border-border-app text-muted inline-flex w-fit items-center rounded-full border-[1.5px] px-3 py-[0.35rem] text-[0.72rem] font-semibold tracking-widest">
