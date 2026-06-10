@@ -7,6 +7,7 @@
  */
 
 import * as ort from "onnxruntime-web";
+import { executionProviders, logProvider } from "./ortProvider";
 import type { DetectedHand } from "../hooks/useSignDetection";
 
 const MODEL_URL = "/models/asl_classifier.onnx";
@@ -37,9 +38,10 @@ async function loadMeta(): Promise<Meta> {
 
 async function init(): Promise<void> {
   if (_session) return;
+  logProvider("alphabet");
   const [session, meta] = await Promise.all([
     ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ["wasm"],
+      executionProviders,
       graphOptimizationLevel: "all",
     }),
     loadMeta(),

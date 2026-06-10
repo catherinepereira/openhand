@@ -9,6 +9,7 @@
  */
 
 import * as ort from "onnxruntime-web";
+import { executionProviders, logProvider } from "./ortProvider";
 import { FRAME_FEATURES, FRAME_LANDMARKS, GROUP_OFFSETS } from "./landmarks";
 
 const MODEL_URL = "/models/asl_ctc.onnx";
@@ -39,9 +40,10 @@ async function loadMeta(): Promise<Meta> {
 
 async function init(): Promise<void> {
   if (_session) return;
+  logProvider("ctc");
   const [session, meta] = await Promise.all([
     ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ["wasm"],
+      executionProviders,
       graphOptimizationLevel: "all",
     }),
     loadMeta(),
