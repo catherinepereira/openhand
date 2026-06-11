@@ -51,9 +51,13 @@ export async function createDetectors(
   const fileset = await FilesetResolver.forVisionTasks(WASM_BASE);
   const runningMode = running.toUpperCase() as "VIDEO" | "IMAGE";
 
+  // Run inference on the GPU (WebGL), the largest latency win over the CPU
+  // default. Tasks-vision falls back to CPU when no GPU is available
+  const delegate = "GPU" as const;
+
   const [hand, pose, face] = await Promise.all([
     HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: TASK_URLS.hand },
+      baseOptions: { modelAssetPath: TASK_URLS.hand, delegate },
       numHands: 2,
       minHandDetectionConfidence: MIN_CONFIDENCE,
       minHandPresenceConfidence: MIN_CONFIDENCE,
@@ -61,14 +65,14 @@ export async function createDetectors(
       runningMode,
     }),
     PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: TASK_URLS.pose },
+      baseOptions: { modelAssetPath: TASK_URLS.pose, delegate },
       minPoseDetectionConfidence: MIN_CONFIDENCE,
       minPosePresenceConfidence: MIN_CONFIDENCE,
       minTrackingConfidence: MIN_CONFIDENCE,
       runningMode,
     }),
     FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: TASK_URLS.face },
+      baseOptions: { modelAssetPath: TASK_URLS.face, delegate },
       numFaces: 1,
       minFaceDetectionConfidence: MIN_CONFIDENCE,
       minFacePresenceConfidence: MIN_CONFIDENCE,

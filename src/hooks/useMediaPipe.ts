@@ -6,20 +6,21 @@ import {
   type MediaPipeDetectors,
 } from "../lib/mediapipe";
 
-/** Frame intervalfor MediaPipe detection: 10 fps */
-const FRAME_INTERVAL_MS = 100;
-
 /**
  * Shared MediaPipe producer
- * Initializes Hand/Pose/Face detectors once for the page lifetime, runs them on every webcam frame, and exposes the latest detection as React state.
+ * Initializes Hand/Pose/Face detectors once for the page lifetime, runs them on every new webcam frame, and exposes the latest detection as React state.
  * The state is null until the detectors finish loading and the first frame is processed
+ *
+ * The capture loop is requestAnimationFrame, matching the official MediaPipe web demos, so detection is paced to the display refresh instead of a fixed 10fps timer.
+ * An unchanged video frame is skipped so the same image is never detected twice
  */
 export function useMediaPipe(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   active: boolean,
 ) {
   const detectorsRef = useRef<MediaPipeDetectors | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastVideoTimeRef = useRef(-1);
   const [detection, setDetection] = useState<FrameDetection | null>(null);
 
   useEffect(() => {
@@ -44,16 +45,22 @@ export function useMediaPipe(
 
   useEffect(() => {
     if (!active) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastVideoTimeRef.current = -1;
       setDetection(null);
       return;
     }
 
-    intervalRef.current = setInterval(() => {
+    const tick = () => {
+      rafRef.current = requestAnimationFrame(tick);
       const detectors = detectorsRef.current;
       const video = videoRef.current;
       if (!detectors || !video || video.readyState < 2) return;
+      // Skip frames the camera has not advanced past yet, so the same image is
+      // never run through the three detectors twice
+      if (video.currentTime === lastVideoTimeRef.current) return;
+      lastVideoTimeRef.current = video.currentTime;
 
       let result: FrameDetection;
       try {
@@ -62,11 +69,12 @@ export function useMediaPipe(
         return;
       }
       setDetection(result);
-    }, FRAME_INTERVAL_MS);
+    };
+    rafRef.current = requestAnimationFrame(tick);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
   }, [active, videoRef]);
 
