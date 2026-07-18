@@ -1,7 +1,7 @@
 /**
  * Browser-side CTC fingerspelling decoder
  *
- * Loads asl_ctc.onnx (~18 MB) lazily on first use, normalizes the holistic landmark clip, runs onnxruntime-web, and decodes with prefix beam search
+ * Loads asl_ctc.onnx lazily on first use, normalizes the holistic landmark clip, stacks motion deltas, runs onnxruntime-web, and decodes with prefix beam search
  *
  * MUST stay in sync with openhand-model/fingerspelling/model/landmarks.py (training-side normalization)
  * Always pass the "missing" mask (one bool per landmark) to mark absent landmarks
@@ -16,6 +16,7 @@ const MODEL_URL = "/models/asl_ctc.onnx";
 const META_URL = "/models/asl_ctc_meta.json";
 
 const MAX_FRAMES = 256; // matches training-time max_frames
+const MODEL_FEATURES = FRAME_FEATURES * 2; // position + motion-delta per frame
 const DEFAULT_BEAM_WIDTH = 10;
 const NEG_INF = -1e30;
 const NORM_PERCENTILE = 95;
@@ -359,43 +360,39 @@ export async function transcribe(
 
   const normalized = normalizeSequence(feats, miss, T);
 
-  // Batch-pad to 2
-  const xBatch = new Float32Array(2 * T * FRAME_FEATURES);
-  xBatch.set(normalized, 0);
-  // Second batch item stays all-zero (already initialized)
+  // Stack motion deltas after the positions: MODEL_FEATURES per frame, the
+  // first FRAME_FEATURES the position, the next FRAME_FEATURES the delta from
+  // the previous frame (zero on the first). Mirrors add_motion_features in
+  // openhand-model/fingerspelling/model/landmarks.py
+  const model = new Float32Array(T * MODEL_FEATURES);
+  for (let t = 0; t < T; t++) {
+    const pos = normalized.subarray(t * FRAME_FEATURES, (t + 1) * FRAME_FEATURES);
+    model.set(pos, t * MODEL_FEATURES);
+    if (t > 0) {
+      const prev = normalized.subarray((t - 1) * FRAME_FEATURES, t * FRAME_FEATURES);
+      const base = t * MODEL_FEATURES + FRAME_FEATURES;
+      for (let i = 0; i < FRAME_FEATURES; i++) model[base + i] = pos[i] - prev[i];
+    }
+  }
 
-  // pad_mask shape (B, T) bool. ONNX bool is uint8 in onnxruntime-web
-  const padMask = new Uint8Array(2 * T);
-  // First half (real input) all false (0), second half (fake) all true (1)
-  padMask.fill(0, 0, T);
-  padMask.fill(1, T, 2 * T);
-
-  const xTensor = new ort.Tensor("float32", xBatch, [2, T, FRAME_FEATURES]);
-  const maskTensor = new ort.Tensor("bool", padMask, [2, T]);
-  const out = await session.run({ landmarks: xTensor, pad_mask: maskTensor });
+  // One sequence, no padding mask. The exported model takes (1, T, MODEL_FEATURES)
+  const xTensor = new ort.Tensor("float32", model, [1, T, MODEL_FEATURES]);
+  const out = await session.run({ landmarks: xTensor });
   const logProbsTensor = out[session.outputNames[0]];
   const logProbs = logProbsTensor.data as Float32Array;
-  // ONNX output is (T, B, V)
+  // ONNX output is (T, 1, V)
   const dims = logProbsTensor.dims;
   const outT = dims[0];
   const outB = dims[1];
   const V = dims[2];
-  if (outB !== 2 || outT !== T) {
-    // Shape drift would be a config mismatch
+  if (outB !== 1 || outT !== T) {
     throw new Error(
-      `CTC output shape ${dims.join("x")} does not match expected (${T}, 2, V)`,
+      `CTC output shape ${dims.join("x")} does not match expected (${T}, 1, V)`,
     );
   }
 
-  // Extract batch index 0
-  // Flat layout is row-major (T, B, V), so for batch b at time t the offset is (t * B + b) * V
-  const lp = new Float32Array(T * V);
-  for (let t = 0; t < T; t++) {
-    const src = (t * outB + 0) * V;
-    lp.set(logProbs.subarray(src, src + V), t * V);
-  }
-
-  return beamSearchDecode(lp, T, V, _blankIdx, beamWidth);
+  // Batch dim is 1, so (T, 1, V) is already contiguous per frame
+  return beamSearchDecode(logProbs, T, V, _blankIdx, beamWidth);
 }
 
 /** Load model but only when using transcription as this is a bigger model */
