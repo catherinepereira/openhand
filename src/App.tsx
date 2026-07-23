@@ -156,7 +156,7 @@ export default function App() {
                     onClick={recorder.stop}
                     aria-label="Stop recording"
                     title="Stop recording"
-                    className="flex w-12 shrink-0 items-center justify-center rounded-xl bg-[#dc2626] text-white transition-opacity hover:opacity-85"
+                    className="flex h-12 w-12 shrink-0 self-start items-center justify-center rounded-xl bg-[#dc2626] text-white transition-opacity hover:opacity-85"
                   >
                     <StopIcon />
                   </button>
@@ -170,7 +170,7 @@ export default function App() {
                     title={
                       recorder.state === "decoding" ? "Decoding" : "Record"
                     }
-                    className="bg-ink flex w-12 shrink-0 items-center justify-center rounded-xl text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
+                    className="bg-ink flex h-12 w-12 shrink-0 self-start items-center justify-center rounded-xl text-white transition-opacity hover:enabled:opacity-80 disabled:opacity-60"
                   >
                     <RecordIcon />
                   </button>
