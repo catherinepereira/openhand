@@ -1,10 +1,12 @@
 /**
- * Serializes onnxruntime-web inference across every session in the page.
+ * Serializes onnxruntime-web work across every session in the page.
  *
- * The alphabet and CTC models hold separate sessions but share the wasm
- * backend, and onnxruntime-web throws "Session already started" or "Session
- * mismatch" when two runs overlap on it. Each caller awaits the previous run
- * before starting its own
+ * The alphabet and CTC models hold separate sessions but share one wasm
+ * backend. Overlapping runs throw "Session already started" or "Session
+ * mismatch", and overlapping session creation throws "multiple calls to
+ * initWasm()" because the backend initializes lazily on the first create.
+ * Both paths go through the same queue so only one touches the backend at a
+ * time
  */
 
 let tail: Promise<unknown> = Promise.resolve();

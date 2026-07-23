@@ -30,6 +30,9 @@ interface Meta {
 let _session: ort.InferenceSession | null = null;
 let _meta: Meta | null = null;
 let _inputName = "";
+// Cache the in-flight init, not just the finished session
+// Callers overlap before the first one assigns _session
+let _initPromise: Promise<void> | null = null;
 
 async function loadMeta(): Promise<Meta> {
   const r = await fetch(META_URL);
@@ -37,16 +40,28 @@ async function loadMeta(): Promise<Meta> {
   return (await r.json()) as Meta;
 }
 
-async function init(): Promise<void> {
-  if (_session) return;
+function init(): Promise<void> {
+  if (_session) return Promise.resolve();
+  if (!_initPromise) {
+    _initPromise = doInit().catch((err) => {
+      // Clear on failure so a later call retries instead of reusing the rejection
+      _initPromise = null;
+      throw err;
+    });
+  }
+  return _initPromise;
+}
+
+async function doInit(): Promise<void> {
   logProvider("alphabet");
-  const [session, meta] = await Promise.all([
+  const metaPromise = loadMeta();
+  const session = await runExclusive(() =>
     ort.InferenceSession.create(MODEL_URL, {
       executionProviders,
       graphOptimizationLevel: "all",
     }),
-    loadMeta(),
-  ]);
+  );
+  const meta = await metaPromise;
   _session = session;
   _meta = meta;
   _inputName = session.inputNames[0];
