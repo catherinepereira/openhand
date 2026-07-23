@@ -9,7 +9,8 @@
  */
 
 import * as ort from "onnxruntime-web";
-import { executionProviders, logProvider } from "./ortProvider";
+import { ctcExecutionProviders, logProvider } from "./ortProvider";
+import { runExclusive } from "./ortQueue";
 import { FRAME_FEATURES, FRAME_LANDMARKS, GROUP_OFFSETS } from "./landmarks";
 
 const MODEL_URL = "/models/asl_ctc.onnx";
@@ -41,10 +42,10 @@ async function loadMeta(): Promise<Meta> {
 
 async function init(): Promise<void> {
   if (_session) return;
-  logProvider("ctc");
+  logProvider("ctc", ctcExecutionProviders);
   const [session, meta] = await Promise.all([
     ort.InferenceSession.create(MODEL_URL, {
-      executionProviders,
+      executionProviders: ctcExecutionProviders,
       graphOptimizationLevel: "all",
     }),
     loadMeta(),
@@ -377,7 +378,7 @@ export async function transcribe(
 
   // One sequence, no padding mask. The exported model takes (1, T, MODEL_FEATURES)
   const xTensor = new ort.Tensor("float32", model, [1, T, MODEL_FEATURES]);
-  const out = await session.run({ landmarks: xTensor });
+  const out = await runExclusive(() => session.run({ landmarks: xTensor }));
   const logProbsTensor = out[session.outputNames[0]];
   const logProbs = logProbsTensor.data as Float32Array;
   // ONNX output is (T, 1, V)

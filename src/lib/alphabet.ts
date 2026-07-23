@@ -8,6 +8,7 @@
 
 import * as ort from "onnxruntime-web";
 import { executionProviders, logProvider } from "./ortProvider";
+import { runExclusive } from "./ortQueue";
 import type { DetectedHand } from "../hooks/useSignDetection";
 
 const MODEL_URL = "/models/asl_classifier.onnx";
@@ -131,7 +132,7 @@ export async function classifyHand(
   const session = _session!;
   const meta = _meta!;
   const tensor = new ort.Tensor("float32", normalized, [1, N_FEATURES]);
-  const output = await session.run({ [_inputName]: tensor });
+  const output = await runExclusive(() => session.run({ [_inputName]: tensor }));
   const logitsTensor = output[session.outputNames[0]];
   const probs = softmax(logitsTensor.data as Float32Array);
 
